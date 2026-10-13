@@ -1,0 +1,23 @@
+{
+	"name": "pw-ai-monorepo",
+	"private": true,
+	"license": "Apache-2.0",
+	"scripts": {
+		"build": "pnpm --recursive build",
+		"format": "oxfmt --write",
+		"lint": "oxlint",
+		"test": "vitest",
+		"tsc": "tsc --build",
+		"release": "pnpx bumpp pw-ai/package.json --commit --tag --push"
+	},
+	"packageManager": "pnpm@11.7.0",
+	"engines": {
+		"node": "^24.0.0"
+	},
+	"devDependencies": {
+		"oxfmt": "^0.68.0",
+		"oxlint": "^1.83.0",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	}
+}
