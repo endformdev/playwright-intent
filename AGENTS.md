@@ -1,4 +1,4 @@
-# Agent Guidelines for pw-ai
+# Agent Guidelines for playwright-intent
 
 Always typecheck from workspace root: `pnpm tsc`
 Always run unit tests from workspace root: `pnpm test`

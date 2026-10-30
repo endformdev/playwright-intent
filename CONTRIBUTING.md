@@ -1,4 +1,4 @@
-# Contributing to pw-ai
+# Contributing to playwright-intent
 
 ## Prerequisites
 
@@ -8,8 +8,8 @@
 ## Setup
 
 ```bash
-git clone https://github.com/endformdev/pw-ai.git
-cd pw-ai
+git clone https://github.com/endformdev/playwright-intent.git
+cd playwright-intent
 pnpm install
 ```
 
@@ -17,9 +17,9 @@ pnpm install
 
 This is a pnpm workspace. Each package lives in a top-level directory:
 
-- `pw-ai/` — the `pw-ai` package
+- `playwright-intent/` — the `playwright-intent` package
 
-Additional packages are published under the `@pw-ai/` npm scope. To add one, create a top-level directory, add it to `pnpm-workspace.yaml`, `tsconfig.json`, `vitest.config.ts`, the `release` script in `package.json` and the filters in `.github/workflows/release.yml`.
+Additional packages are published under the `@playwright-intent/` npm scope. To add one, create a top-level directory, add it to `pnpm-workspace.yaml`, `tsconfig.json`, `vitest.config.ts`, the `release` script in `package.json` and the filters in `.github/workflows/release.yml`.
 
 ## Root-level commands
 

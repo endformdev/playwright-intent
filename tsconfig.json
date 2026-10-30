@@ -1,5 +1,5 @@
 {
 	"extends": "./tsconfig.options.json",
 	"files": [],
-	"references": [{ "path": "pw-ai" }]
+	"references": [{ "path": "playwright-intent" }]
 }

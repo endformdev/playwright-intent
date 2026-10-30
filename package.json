@@ -1,5 +1,5 @@
 {
-	"name": "pw-ai-monorepo",
+	"name": "playwright-intent-monorepo",
 	"private": true,
 	"license": "Apache-2.0",
 	"scripts": {
@@ -8,7 +8,7 @@
 		"lint": "oxlint",
 		"test": "vitest",
 		"tsc": "tsc --build",
-		"release": "pnpx bumpp pw-ai/package.json --commit --tag --push"
+		"release": "pnpx bumpp playwright-intent/package.json --commit --tag --push"
 	},
 	"packageManager": "pnpm@11.7.0",
 	"engines": {

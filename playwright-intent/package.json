@@ -1,17 +1,17 @@
 {
-	"name": "pw-ai",
+	"name": "playwright-intent",
 	"version": "0.0.1",
 	"description": "AI tooling for Playwright.",
 	"type": "module",
 	"license": "Apache-2.0",
-	"homepage": "https://github.com/endformdev/pw-ai#readme",
+	"homepage": "https://github.com/endformdev/playwright-intent#readme",
 	"bugs": {
-		"url": "https://github.com/endformdev/pw-ai/issues"
+		"url": "https://github.com/endformdev/playwright-intent/issues"
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/endformdev/pw-ai.git",
-		"directory": "pw-ai"
+		"url": "git+https://github.com/endformdev/playwright-intent.git",
+		"directory": "playwright-intent"
 	},
 	"author": "Oliver Stenbom <oliver@endform.dev>",
 	"keywords": [

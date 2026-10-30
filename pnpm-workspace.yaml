@@ -1,5 +1,5 @@
 packages:
-  - pw-ai
+  - playwright-intent
 
 allowBuilds:
   esbuild: true
