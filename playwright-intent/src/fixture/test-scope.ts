@@ -2,6 +2,7 @@ import path from "node:path";
 import type { APIRequestContext, TestInfo } from "@playwright/test";
 import type { IntentAgent } from "../agent/agent";
 import { createAiSdkAgent } from "../agent/ai-sdk-agent";
+import type { SessionOptions } from "../agent/session";
 import { IntentNotImplementedError } from "../errors";
 import {
 	DEFAULT_LIMITS,
@@ -20,6 +21,7 @@ export interface TestScope {
 	agent: IntentAgent | null;
 	store: IntentStore;
 	limits: IntentLimits;
+	session: SessionOptions;
 	testInfo: TestInfo;
 	request: APIRequestContext;
 	testFile: string;
@@ -36,6 +38,7 @@ export function createTestScope(
 	options: IntentOptions | undefined,
 	testInfo: TestInfo,
 	request: APIRequestContext,
+	session: SessionOptions,
 ): TestScope {
 	const mode = resolveMode(options?.mode);
 	if (mode === "all") {
@@ -54,6 +57,7 @@ export function createTestScope(
 			(options?.model ? createAiSdkAgent(options.model) : null),
 		store: options?.store ?? createFileStore(intentRoot),
 		limits: { ...DEFAULT_LIMITS, ...options?.limits },
+		session,
 		testInfo,
 		request,
 		testFile: path.relative(root, testInfo.file),

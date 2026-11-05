@@ -161,10 +161,17 @@ async function generateStep(
 					previousSteps: [...scope.previousSteps],
 					limits: scope.limits,
 				},
-				createAgentSession(context),
+				createAgentSession(context, scope.session),
 			),
 		{ box: true },
 	);
+
+	if (outcome.transcript) {
+		await scope.testInfo.attach(`agent: ${intent}`, {
+			body: outcome.transcript,
+			contentType: "text/plain",
+		});
+	}
 
 	if (outcome.status === "failed") {
 		throw new IntentAgentFailedError(

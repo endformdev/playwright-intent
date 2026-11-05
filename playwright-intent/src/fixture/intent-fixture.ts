@@ -33,8 +33,15 @@ export function createIntentTest<T extends typeof base>(testBase: T) {
 	return testBase.extend<IntentUseOptions & IntentFixtures>({
 		intent: [undefined, { option: true }],
 
-		ai: async ({ page, request, intent }, use, testInfo) => {
-			const scope = createTestScope(intent, testInfo, request);
+		ai: async (
+			{ page, request, intent, actionTimeout, testIdAttribute },
+			use,
+			testInfo,
+		) => {
+			const scope = createTestScope(intent, testInfo, request, {
+				actionTimeout,
+				testIdAttribute,
+			});
 
 			const actionsFor = (target: Page): IntentActions => ({
 				do: (text, vars = {}) => {

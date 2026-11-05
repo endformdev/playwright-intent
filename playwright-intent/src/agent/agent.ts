@@ -27,6 +27,8 @@ export interface Observation {
 	title: string;
 	/** `page.ariaSnapshot({ mode: "ai" })`, or null if it couldn't be taken. */
 	ariaSnapshot: string | null;
+	/** Elements with a test id, which the ARIA snapshot doesn't show. */
+	testIds: string[];
 	screenshot: Buffer | null;
 	console: string[];
 	pageErrors: string[];
@@ -70,6 +72,7 @@ export interface GenerateTask extends StepTask {
 	previousFailure?: { code: string; error: string };
 }
 
+/** `transcript` is attached to the test, to show how the agent got there. */
 export type GenerateOutcome =
 	| {
 			status: "solved";
@@ -80,8 +83,9 @@ export type GenerateOutcome =
 			 * `dirty`: the code is right, but the page can't continue from here.
 			 */
 			page: "ready" | "dirty";
+			transcript?: string;
 	  }
-	| { status: "failed"; message: string };
+	| { status: "failed"; message: string; transcript?: string };
 
 export interface DiagnoseTask extends StepTask {
 	/** `outside` means the test failed in hand-written code after the steps. */

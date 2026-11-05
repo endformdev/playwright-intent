@@ -9,6 +9,11 @@ import {
 	type AgentCall,
 	type AgentScript,
 } from "../project/scripted-agent";
+import {
+	MODEL_CALLS_FILE,
+	MODEL_SCRIPT_FILE,
+	type ModelScript,
+} from "../project/scripted-model";
 import type { ShopVariant } from "../project/shop/app";
 import { readTrace, type TraceContents } from "./trace";
 
@@ -41,6 +46,8 @@ export interface TestResultSummary {
 	errors: string[];
 	/** The error snippets Playwright printed, across all attempts. */
 	snippets: string[];
+	/** The names of everything attached, across all attempts. */
+	attachments: string[];
 	trace(attempt?: number): TraceContents;
 }
 
@@ -88,6 +95,11 @@ export class Project {
 		await fs.writeFile(this.#path("agent-script.json"), JSON.stringify(script));
 	}
 
+	/** Uses the real built-in agent, on a model that follows this script. */
+	async scriptModel(script: ModelScript): Promise<void> {
+		await fs.writeFile(this.#path(MODEL_SCRIPT_FILE), JSON.stringify(script));
+	}
+
 	async run(options: RunOptions = {}): Promise<RunResult> {
 		const args = [
 			PLAYWRIGHT_CLI,
@@ -133,6 +145,14 @@ export class Project {
 
 	async clearLocalSteps(): Promise<void> {
 		await fs.rm(this.#path(".intent"), { recursive: true, force: true });
+	}
+
+	/** The prompt of each model call, as JSON. */
+	async modelCalls(): Promise<string[]> {
+		const log = await fs
+			.readFile(this.#path(MODEL_CALLS_FILE), "utf8")
+			.catch(() => "");
+		return log.split("\n").filter(Boolean);
 	}
 
 	async agentCalls(): Promise<AgentCall[]> {
@@ -259,6 +279,9 @@ function createRunResult(
 					result.errors.map((error) => firstLine(error.message)),
 				),
 				snippets: test.results.flatMap((result) => result.error?.snippet ?? []),
+				attachments: test.results.flatMap((result) =>
+					result.attachments.map((attachment) => attachment.name),
+				),
 				trace(attempt = 0) {
 					const trace = test.results[attempt]?.attachments.find(
 						(attachment) => attachment.name === "trace",

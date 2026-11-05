@@ -38,6 +38,8 @@ Code always runs from disk, because Playwright reads the file for snippets and t
 
 The library owns the browser, cache and limits. An `IntentAgent` observes, runs code through its session, and returns one outcome. Exploration is never saved.
 
+The built-in agent takes any AI SDK model, so `use.intent.model` can be a provider's model or a Vercel AI Gateway id like `"openai/gpt-6-luna"`. It explores with `run` and `look`, then ends with `finish` or `give_up`. Each generation attaches a transcript to the test. Observations list the page's test ids, because the ARIA snapshot doesn't show them.
+
 Each task includes the test file as it is on disk, with the line of the current `ai.do`, so the agent can see the hand-written code around a step. The file isn't filtered, so values written in the test reach the model. Secrets belong in environment variables.
 
 | Outcome           | Saved | Test                          |
@@ -96,3 +98,13 @@ See [open-questions.md](open-questions.md) for postponed questions. Also postpon
 - Pruning orphaned files, and letting steps import helpers.
 - A CLI, a summary reporter, `-u` integration, and type-checking step files.
 - `ai.expect`, diagnosis in CI, and external agents.
+
+### Using a ChatGPT plan
+
+Users could generate steps on their ChatGPT plan instead of an API key, through OpenAI's [Sign in with ChatGPT for open-source apps](https://developers.openai.com/siwc/token-sharing-open-source). This is a preview, and it needs a test against a real account before we commit to it.
+
+- **API:** add `chatgptPlan("gpt-6-luna")` as an optional `playwright-intent/chatgpt` entry point, plus `npx playwright-intent login`. It returns a normal AI SDK model, so nothing else in the library changes.
+- **Not `backend-api`:** OpenAI says not to call it, so don't copy the Codex-client approach used by `e2e`. Call `https://api.openai.com/v1/responses`. `@earendil-works/pi-ai` is a good MIT reference for the login flow.
+- **Requests:** `@ai-sdk/openai` may need a custom `fetch` to meet the preview's rules: `store: false`, `stream: true`, no `system` role, namespaced or `additional_tools` tools, and no `max_output_tokens` or `temperature`.
+- **Tokens:** refresh tokens rotate, so refreshes need a lock across Playwright workers.
+- **Scope:** it covers open-source, locally hosted use. Hosted Endform needs OpenAI's [interest form](https://openai.com/form/sign-in-with-chatgpt-interest/), and CI should keep using API keys.

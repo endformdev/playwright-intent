@@ -6,9 +6,12 @@ import {
 } from "playwright-intent";
 import { createRemoteStore } from "./remote-store";
 import { createScriptedAgent } from "./scripted-agent";
+import { createScriptedModel, readModelScript } from "./scripted-model";
 
 const { INTENT_E2E_CONFIG_MODE, INTENT_E2E_NO_AGENT, INTENT_E2E_REMOTE_DIR } =
 	process.env;
+
+const modelScript = readModelScript();
 
 export default defineConfig<IntentUseOptions>({
 	testDir: "./tests",
@@ -24,7 +27,12 @@ export default defineConfig<IntentUseOptions>({
 		trace: "on",
 		intent: {
 			mode: INTENT_E2E_CONFIG_MODE as IntentMode | undefined,
-			agent: INTENT_E2E_NO_AGENT ? undefined : createScriptedAgent(),
+			model: modelScript ? createScriptedModel(modelScript) : undefined,
+			limits: modelScript?.maxTurns
+				? { maxTurns: modelScript.maxTurns }
+				: undefined,
+			agent:
+				INTENT_E2E_NO_AGENT || modelScript ? undefined : createScriptedAgent(),
 			store: INTENT_E2E_REMOTE_DIR
 				? createRemoteStore(INTENT_E2E_REMOTE_DIR)
 				: undefined,

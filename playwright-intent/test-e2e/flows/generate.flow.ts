@@ -108,6 +108,39 @@ export const goToCheckout = (ai: { do(intent: string): Promise<void> }) =>
 		expect(JSON.stringify(calls)).not.toContain("guest@example.com");
 	});
 
+	flow(
+		"exploring has its own timeout, and the test keeps its own",
+		async ({ project }) => {
+			const script = checkoutScript();
+			script.generate[INTENT.pay] = [
+				{
+					explore: [
+						`const start = Date.now();
+await page.getByRole("button", { name: "Missing" }).click().catch(() => {});
+console.log(Date.now() - start);`,
+						CODE.pay,
+					],
+					outcome: { status: "solved", code: CODE.pay, page: "ready" },
+				},
+			];
+			await project.scriptAgent(script);
+			await project.replaceInFile(
+				"tests/checkout.spec.ts",
+				'await ai.do("pay as {email}", { email: "guest@example.com" });',
+				`await ai.do("pay as {email}", { email: "guest@example.com" });
+		await page.getByRole("button", { name: "Missing" }).click();`,
+			);
+
+			const run = await project.run({ mode: "missing" });
+
+			const pay = (await project.agentCalls()).find(
+				(call) => call.intent === INTENT.pay,
+			);
+			expect(Number(pay?.logs[0])).toBeGreaterThan(4_000);
+			expect(run.test(CHECKOUT_TEST).errors[0]).toContain("Timeout 1000ms");
+		},
+	);
+
 	flow("each step knows which steps came before it", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
 
