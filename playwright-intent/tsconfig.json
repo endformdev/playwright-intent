@@ -2,11 +2,20 @@
 	"$schema": "https://json.schemastore.org/tsconfig",
 	"extends": "../tsconfig.options.json",
 	"compilerOptions": {
-		"lib": ["ES2023"],
+		"lib": ["ES2023", "DOM"],
 		"types": ["node"],
 		"noUnusedLocals": true,
 		"emitDeclarationOnly": true,
-		"outDir": "lib"
+		"outDir": "lib",
+		"paths": {
+			"playwright-intent": ["./src/index.ts"]
+		}
 	},
-	"include": ["src/**/*", "*.ts", "package.json"]
+	"include": [
+		"src/**/*",
+		"test-unit/**/*",
+		"test-e2e/**/*",
+		"*.ts",
+		"package.json"
+	]
 }

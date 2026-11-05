@@ -2,8 +2,11 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig({
 	dts: {
-		sourcemap: true,
+		sourcemap: false,
 	},
-	entry: "./src/index",
-	exports: true,
+	entry: {
+		index: "./src/index",
+	},
+	fixedExtension: true,
+	format: ["esm", "cjs"],
 });
