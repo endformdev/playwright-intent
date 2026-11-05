@@ -35,8 +35,13 @@ type Result =
 	| { outcome: "rewind"; message: string }
 	| { outcome: "failed" };
 
+/** In `all` mode, this is what happens to steps replayed on a retry. */
+export function diagnosesFailures(scope: TestScope): boolean {
+	return (scope.mode === "changed" || scope.mode === "all") && !!scope.agent;
+}
+
 /**
- * Runs in `changed` mode, on the live page, when a replayed step throws.
+ * Runs on the live page when a replayed step throws.
  * Returns the code to record if the test can carry on from here.
  */
 export async function handleStepFailure(
@@ -73,7 +78,7 @@ export async function handleTestFailure(
 	const failed = status === "failed" || status === "timedOut";
 	const hasSteps = scope.finishedSteps.length > 0 || step !== null;
 
-	if (scope.mode !== "changed" || !scope.agent) return;
+	if (!diagnosesFailures(scope)) return;
 	if (!failed || !hasSteps || scope.diagnosed) return;
 
 	const result = await diagnoseFailure(scope, {
@@ -231,11 +236,17 @@ function reportChangedAssertions(
 			.split("\n")
 			.map((line) => line.trim())
 			.filter((line) => line.includes("expect("));
+	/** Compares without whitespace, so reformatting isn't reported. */
+	const withoutLines = (lines: string[], others: string[]) => {
+		const compact = (line: string) => line.replace(/\s/g, "");
+		const known = new Set(others.map(compact));
+		return lines.filter((line) => !known.has(compact(line)));
+	};
 	const oldLines = assertions(before);
 	const newLines = assertions(after);
 	const changes = [
-		...oldLines.filter((line) => !newLines.includes(line)).map((l) => `- ${l}`),
-		...newLines.filter((line) => !oldLines.includes(line)).map((l) => `+ ${l}`),
+		...withoutLines(oldLines, newLines).map((line) => `- ${line}`),
+		...withoutLines(newLines, oldLines).map((line) => `+ ${line}`),
 	];
 	if (changes.length > 0) {
 		report(scope, `Check these assertion changes:\n${changes.join("\n")}`);

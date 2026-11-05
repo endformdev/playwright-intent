@@ -10,6 +10,17 @@ import type {
 	RunResult,
 } from "./agent";
 
+/** What makes code safe to save, for both new steps and repairs. */
+const STEP_CODE_RULES = `- Use \`getByTestId\` when an element has a test id, because its text can change. Otherwise ask Playwright for the best locator, and use what it returns: \`return String(await page.locator("aria-ref=e6").normalize())\`.
+- \`aria-ref\` values only last for one snapshot, so never put them in the final code.
+- Later runs have different data. Never rely on text that only this run has, like generated names, initials, ids or dates.
+- Read variables from \`vars\`, like \`vars.email\`. You don't get their values.
+- Tests run against different addresses, so match URLs by path, never by host.
+- Keep the code in a straight line, with no \`if\`, \`try\` or \`.catch\`. A step should fail when the app doesn't behave the same way, not adapt to it.
+- Wait for conditions, never for a fixed time. Don't use \`force: true\` or \`dispatchEvent\`.
+- Include only what the step needs, not your exploration. Put each statement on its own line.
+- Before finishing, run every assertion in the final code exactly as you'll save it, and fix any that fail.`;
+
 const GENERATE_INSTRUCTIONS = `You turn one natural-language step of a Playwright test into code.
 
 You work on a real browser page, which is already where the test has left it. Use \`run\` to carry out the step for real, one action at a time. Actions you run really happen, so never repeat one that worked. Then call \`finish\` with the final code. If the step can't be done, call \`give_up\`.
@@ -18,15 +29,8 @@ Code passed to \`run\` and \`finish\` is a list of statements in an async functi
 
 The code you finish with is saved and replayed in later test runs without you, on a fresh page, so:
 - Do exactly what the step says. The test file shows what happens around the step, so leave later work to it, and leave the page where the following code expects it.
-- Prefer \`getByTestId\` when an element has a test id, because its text can change. Otherwise ask Playwright for the best locator, and use what it returns: \`return String(await page.locator("aria-ref=e6").normalize())\`.
-- \`aria-ref\` values only last for one snapshot, so never put them in the final code.
-- Later runs have different data. Never rely on text that only this run has, like generated names, initials, ids or dates.
-- Read variables from \`vars\`, like \`vars.email\`. You don't get their values.
 - End with an \`expect\` that proves this step happened. Leave the test's own assertions to the test, and don't copy values from the test file unless the step names them.
-- Tests run against different addresses, so match URLs by path, never by host.
-- Wait for conditions, never for a fixed time. Don't use \`force: true\` or \`dispatchEvent\`.
-- Include only what the step needs, not your exploration. Put each statement on its own line.
-- Before finishing, run every assertion in the final code exactly as you'll save it, and fix any that fail.
+${STEP_CODE_RULES}
 
 Finish with \`page: "ready"\` when the page is where your code would leave it. Use \`page: "dirty"\` when your code is right but exploring left the page somewhere else, for example if you submitted a form twice.
 
@@ -42,13 +46,10 @@ The test's steps are saved code, generated earlier from natural language. What y
 
 Look before you decide. Use \`run\` to read the page, try locators, and check whether the app really works. The page is live, so anything you do really happens. Code passed to \`run\` is a list of statements in an async function, with \`page\`, \`context\`, \`request\`, \`expect\` and \`vars\` in scope. \`return\` a value or use \`console.log\` to see something. Actions time out after 5 seconds.
 
-To \`repair\`, carry out the step for real with \`run\`, then pass the final code. Use \`page: "ready"\` when the page is where your code would leave it, and \`page: "dirty"\` when it isn't. The code replaces the step and is replayed in later runs, so:
+To \`repair\`, carry out the step for real with \`run\`, then pass the final code. Use \`page: "ready"\` when the page is where your code would leave it, and \`page: "dirty"\` when it isn't. The code replaces the whole step and is replayed in later runs, starting from where the previous step left the page. So:
+- Write it for that starting point, not for the page in front of you. If the failed step left a menu open or a form half filled, that won't be there in a replay, so don't add anything to deal with it. Use \`page: "dirty"\` instead.
 - Keep what the step checks. Update a locator or a label, but never remove or loosen an assertion to get past a failure. If the old assertion was right and the app no longer meets it, that's a \`fail\`.
-- Use \`getByTestId\` when an element has a test id. Otherwise use locators a user would recognise, like \`getByRole\`, \`getByLabel\` and \`getByText\`.
-- Never put \`aria-ref\` values in the code, and never rely on text that only this run has, like generated names or ids.
-- Read variables from \`vars\`. Match URLs by path, never by host.
-- Wait for conditions, never for a fixed time. Don't use \`force: true\` or \`dispatchEvent\`.
-- Run every assertion exactly as you'll save it.
+${STEP_CODE_RULES}
 
 \`regenerate\` takes the exact text of the steps to redo. Anything else in the test stays as it is.`;
 

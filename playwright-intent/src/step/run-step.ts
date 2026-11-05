@@ -20,7 +20,7 @@ import { readTestFile } from "../fixture/test-file";
 import type { TestScope } from "../fixture/test-scope";
 import { materializeStep } from "../store/file-store";
 import { clearFailedStep, readFailedStep } from "./failed-step";
-import { handleStepFailure } from "./handle-failure";
+import { diagnosesFailures, handleStepFailure } from "./handle-failure";
 import {
 	assertVariablesMatch,
 	placeholderNames,
@@ -28,7 +28,7 @@ import {
 } from "./intent-text";
 import { saveStep } from "./save-step";
 import { parseStepCode, parseStepHeader } from "./step-file";
-import { stepKey } from "./step-path";
+import { stepKey, testFolder } from "./step-path";
 
 /** What a step file receives. Steps can't import anything else at runtime. */
 export interface StepContext {
@@ -42,7 +42,7 @@ export interface StepContext {
 type StepFunction = (context: StepContext) => Promise<void>;
 
 /** Without `actionTimeout`, a stale locator would wait for the test timeout. */
-const CHANGED_MODE_ACTION_TIMEOUT_MS = 15_000;
+const DIAGNOSED_ACTION_TIMEOUT_MS = 15_000;
 
 export async function runStep(
 	scope: TestScope,
@@ -69,6 +69,7 @@ export async function runStep(
 	};
 
 	try {
+		await clearStepsForAllMode(scope);
 		const source = await readStep(scope, key, intent);
 		const code =
 			source === null
@@ -80,6 +81,18 @@ export async function runStep(
 		if (error instanceof IntentError) scope.diagnosed = true;
 		throw error;
 	}
+}
+
+/**
+ * Clearing once, on the first attempt, is what lets a retry tell the steps
+ * this run has already generated from the old ones it hasn't reached yet.
+ */
+async function clearStepsForAllMode(scope: TestScope): Promise<void> {
+	if (scope.mode !== "all" || scope.testInfo.retry > 0 || scope.cleared) return;
+	scope.cleared = true;
+
+	const keys = await scope.store.list(testFolder(scope));
+	await Promise.all(keys.map((key) => scope.store.delete(key)));
 }
 
 function claimStep(scope: TestScope, key: string, intent: string): void {
@@ -128,10 +141,9 @@ async function replayStep(
 	const file = scope.localPath(key);
 	await materializeStep(file, source);
 
-	if (scope.mode !== "changed" || !scope.agent) {
-		await (
-			await importStep(file)
-		)(context);
+	if (!diagnosesFailures(scope)) {
+		const step = await importStep(file);
+		await step(context);
 		return code;
 	}
 
@@ -146,7 +158,7 @@ async function replayStep(
 	};
 	scope.currentStep = running;
 	context.context.setDefaultTimeout(
-		actionTimeout || CHANGED_MODE_ACTION_TIMEOUT_MS,
+		actionTimeout || DIAGNOSED_ACTION_TIMEOUT_MS,
 	);
 
 	try {

@@ -3,6 +3,7 @@ import {
 	checkoutScript,
 	CHECKOUT_TEST,
 	CODE,
+	INTENT,
 	solved,
 } from "../harness/shop-steps";
 
@@ -82,14 +83,32 @@ flow.describe("step identity", () => {
 		expect(run.test(CHECKOUT_TEST).errors[0]).toContain("doesn't belong to");
 	});
 
-	flow.fixme(
-		"a long intent cut to the same name is a miss",
-		async ({ project }) => {
-			// Two long intents share their first 150 bytes. The header holds the
-			// exact text, so changing one must regenerate, not reuse the other.
-			await project.scriptAgent({
-				generate: { "open the cart": [solved(CODE.add)] },
-			});
-		},
-	);
+	flow("a long intent cut to the same name is a miss", async ({ project }) => {
+		// Both intents share their first 150 bytes, so they share a file. The
+		// header holds the exact text, so this must regenerate, not reuse it.
+		const start = `add the blue shirt ${"very ".repeat(40)}`;
+		const first = `${start}quickly`;
+		const second = `${start}slowly`;
+		await project.scriptAgent({
+			generate: {
+				...checkoutScript().generate,
+				[first]: [solved(CODE.add)],
+				[second]: [solved(CODE.add)],
+			},
+		});
+		await project.replaceInFile(
+			"tests/checkout.spec.ts",
+			`await ai.do("${INTENT.add}");`,
+			`await ai.do("${first}");`,
+		);
+		await project.run({ mode: "missing" });
+		const filesBefore = await project.stepFiles();
+
+		await project.replaceInFile("tests/checkout.spec.ts", first, second);
+		const run = await project.run({ mode: "missing" });
+
+		expect(run.exitCode).toBe(0);
+		expect((await project.agentCalls()).at(-1)?.intent).toBe(second);
+		expect(await project.stepFiles()).toEqual(filesBefore);
+	});
 });

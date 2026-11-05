@@ -3,7 +3,6 @@ import type { APIRequestContext, TestInfo } from "@playwright/test";
 import type { FailureContextProvider, IntentAgent } from "../agent/agent";
 import { createAiSdkAgent } from "../agent/ai-sdk-agent";
 import type { SessionOptions } from "../agent/session";
-import { IntentNotImplementedError } from "../errors";
 import {
 	DEFAULT_LIMITS,
 	type IntentLimits,
@@ -34,6 +33,8 @@ export interface TestScope {
 	finishedSteps: FinishedStep[];
 	/** The replayed step in progress, which a test timeout can interrupt. */
 	currentStep: RunningStep | null;
+	/** `all` mode has cleared this test's steps. */
+	cleared: boolean;
 	/** This attempt's failure is already dealt with. */
 	diagnosed: boolean;
 	/** Intents this attempt generated after an earlier failure. */
@@ -55,9 +56,6 @@ export function createTestScope(
 	session: SessionOptions,
 ): TestScope {
 	const mode = resolveMode(options?.mode);
-	if (mode === "all") {
-		throw new IntentNotImplementedError("`all` mode isn't built yet.");
-	}
 
 	const configFile = testInfo.config.configFile;
 	const root = configFile ? path.dirname(configFile) : testInfo.config.rootDir;
@@ -80,6 +78,7 @@ export function createTestScope(
 		claimedKeys: new Set(),
 		finishedSteps: [],
 		currentStep: null,
+		cleared: false,
 		diagnosed: false,
 		regeneratedSteps: [],
 		failureContext: options?.context,

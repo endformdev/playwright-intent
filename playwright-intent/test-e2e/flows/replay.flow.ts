@@ -5,6 +5,7 @@ import {
 	checkoutScript,
 	INTENT,
 	solved,
+	solvedButDirty,
 } from "../harness/shop-steps";
 
 flow.describe("replaying steps", () => {
@@ -121,7 +122,7 @@ flow.describe("replaying steps", () => {
 		expect(run.exitCode).toBe(0);
 	});
 
-	flow.fixme("all regenerates every step that runs", async ({ project }) => {
+	flow("all regenerates every step that runs", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
 		await project.run({ mode: "missing" });
 
@@ -138,12 +139,46 @@ flow.describe("replaying steps", () => {
 		expect(await project.agentCalls()).toHaveLength(6);
 	});
 
-	flow.fixme("all doesn't regenerate again on a retry", async ({ project }) => {
+	flow("all doesn't regenerate again on a retry", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
 		await project.run({ mode: "missing" });
+		await project.scriptAgent({
+			generate: {
+				[INTENT.add]: [solved(CODE.add), solvedButDirty(CODE.add)],
+				[INTENT.checkout]: [solved(CODE.checkout), solved(CODE.checkout)],
+				[INTENT.pay]: [solved(CODE.pay), solved(CODE.pay)],
+			},
+		});
 
-		// The first attempt clears the test's steps. After a dirty generation,
-		// the retry should replay what's saved, not start over.
-		await project.run({ mode: "all", retries: 2 });
+		const run = await project.run({ mode: "all", retries: 2 });
+
+		expect(run.test(CHECKOUT_TEST).attempts).toEqual(["failed", "passed"]);
+		const calls = await project.agentCalls();
+		const added = calls.filter((call) => call.intent === INTENT.add);
+		expect(added).toHaveLength(2);
+		expect(calls).toHaveLength(6);
+	});
+
+	flow("all removes steps the test no longer uses", async ({ project }) => {
+		await project.scriptAgent(checkoutScript());
+		await project.run({ mode: "missing" });
+		await project.replaceInFile(
+			"tests/checkout.spec.ts",
+			'await ai.do("go to checkout");',
+			'await ai.do("open the checkout");',
+		);
+		await project.scriptAgent({
+			generate: {
+				[INTENT.add]: [solved(CODE.add), solved(CODE.add)],
+				"open the checkout": [solved(CODE.checkout)],
+				[INTENT.pay]: [solved(CODE.pay), solved(CODE.pay)],
+			},
+		});
+
+		await project.run({ mode: "all" });
+
+		const steps = (await project.stepFiles()).join("\n");
+		expect(steps).toContain("open the checkout.ts");
+		expect(steps).not.toContain(`${INTENT.checkout}.ts`);
 	});
 });

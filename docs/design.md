@@ -57,7 +57,9 @@ The first normal replay proves a generated step works.
 | `none`    | Fail       | Fail              |
 | `missing` | Generate   | Fail              |
 | `changed` | Generate   | Agent diagnoses   |
-| `all`     | Regenerate | Regenerate        |
+| `all`     | Generate   | Agent diagnoses   |
+
+`all` clears a test's steps when its first attempt starts, so everything is a miss. A retry replays what the run has already generated, and generates the rest. If an attempt fails early, the steps it didn't reach stay cleared until something generates them, so `all` needs Git or another way back.
 
 Configuration lives only in `playwright.config.ts`, under `use.intent`. `PW_INTENT` overrides the mode for one run. With neither set, the mode is `none` in CI and `missing` elsewhere.
 
@@ -96,7 +98,7 @@ A repair that changes a step's assertions is listed in the run output, but isn't
 
 ## Later
 
-See [open-questions.md](open-questions.md) for postponed questions. Also postponed:
+See [open-questions.md](open-questions.md) for postponed questions, and [step-quality.md](step-quality.md) for what trials showed about the agent's code. Also postponed:
 
 - `cache-api`, remote stores, branch handling and review flows.
 - Sharing steps between tests, and separate caches per browser project.

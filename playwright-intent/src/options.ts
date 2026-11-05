@@ -9,7 +9,8 @@ export const INTENT_MODES = ["none", "missing", "changed", "all"] as const;
  * - `none`: replay only. A miss or a failing step fails the test.
  * - `missing`: generate misses. A failing step fails the test.
  * - `changed`: generate misses, and diagnose failures with the agent.
- * - `all`: regenerate every step that runs.
+ * - `all`: regenerate every step that runs, and diagnose failures. A retry
+ *   replays what the first attempt generated.
  */
 export type IntentMode = (typeof INTENT_MODES)[number];
 

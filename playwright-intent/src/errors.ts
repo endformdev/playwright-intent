@@ -29,6 +29,3 @@ export class IntentAgentFailedError extends IntentError {}
  * The test fails on purpose, and the next retry replays from a clean page.
  */
 export class IntentRewindError extends IntentError {}
-
-/** Marks parts of the design that are outlined but not built yet. */
-export class IntentNotImplementedError extends IntentError {}
