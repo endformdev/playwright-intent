@@ -75,10 +75,15 @@ Retries are the only rewind, because a fixture can't restart a test. In `changed
 
 `use.intent.context` adds text to the diagnosis, like Endform's failure history.
 
+The agent's reasons appear in the run output and as `intent` annotations, and each diagnosis attaches a transcript. If the diagnosis itself fails, the test keeps its own error.
+
 The library enforces these limits, whatever the agent asks for:
 
-- `ready` needs an unchanged ARIA snapshot. Otherwise it's treated as `dirty`.
-- `regenerate` can only touch the current test's steps.
+- `ready` only continues the attempt when nothing in the step could have changed the page before the failure. That's read from the failing line: only assertions may come before it. Otherwise it's treated as `dirty`. Comparing ARIA snapshots doesn't work, because pages keep loading while a step waits.
+- `regenerate` can only touch steps that ran in the current test.
+- Failures outside a step can't `repair`. They're diagnosed in the fixture's teardown, along with test timeouts inside a step, so these can only prepare the next attempt.
+
+`.intent/.failed/<step>.json` keeps the old code and error, which the next generation receives as `previousFailure`. It's removed once the step has been generated again. In `changed` mode, a replayed step gets a 15 second action timeout if `use.actionTimeout` isn't set, so a stale locator doesn't use up the whole test timeout.
 
 A repair that changes a step's assertions is listed in the run output, but isn't blocked.
 
@@ -98,6 +103,7 @@ See [open-questions.md](open-questions.md) for postponed questions. Also postpon
 - Pruning orphaned files, and letting steps import helpers.
 - A CLI, a summary reporter, `-u` integration, and type-checking step files.
 - `ai.expect`, diagnosis in CI, and external agents.
+- Replacing a step mid-process. Node caches each import, so a test that repeats in the same worker after a repair, with `--repeat-each`, replays the old code until the next process.
 
 ### Using a ChatGPT plan
 

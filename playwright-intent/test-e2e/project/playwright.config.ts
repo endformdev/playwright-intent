@@ -8,8 +8,12 @@ import { createRemoteStore } from "./remote-store";
 import { createScriptedAgent } from "./scripted-agent";
 import { createScriptedModel, readModelScript } from "./scripted-model";
 
-const { INTENT_E2E_CONFIG_MODE, INTENT_E2E_NO_AGENT, INTENT_E2E_REMOTE_DIR } =
-	process.env;
+const {
+	INTENT_E2E_CONFIG_MODE,
+	INTENT_E2E_FAILURE_CONTEXT,
+	INTENT_E2E_NO_AGENT,
+	INTENT_E2E_REMOTE_DIR,
+} = process.env;
 
 const modelScript = readModelScript();
 
@@ -33,6 +37,7 @@ export default defineConfig<IntentUseOptions>({
 				: undefined,
 			agent:
 				INTENT_E2E_NO_AGENT || modelScript ? undefined : createScriptedAgent(),
+			context: () => INTENT_E2E_FAILURE_CONTEXT,
 			store: INTENT_E2E_REMOTE_DIR
 				? createRemoteStore(INTENT_E2E_REMOTE_DIR)
 				: undefined,

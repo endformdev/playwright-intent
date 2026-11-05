@@ -36,6 +36,10 @@ export interface RunOptions {
 	/** Test files to run. Defaults to the checkout test, which passes cleanly. */
 	files?: string[];
 	grep?: string;
+	/** Text for `use.intent.context` to return. */
+	failureContext?: string;
+	/** Sets the test timeout, to reach timeouts quickly. */
+	timeout?: number;
 }
 
 export interface TestResultSummary {
@@ -48,6 +52,8 @@ export interface TestResultSummary {
 	snippets: string[];
 	/** The names of everything attached, across all attempts. */
 	attachments: string[];
+	/** What the library reported about failures, across all attempts. */
+	notes: string[];
 	trace(attempt?: number): TraceContents;
 }
 
@@ -106,6 +112,7 @@ export class Project {
 			"test",
 			`--retries=${options.retries ?? 0}`,
 			...(options.grep ? ["--grep", options.grep] : []),
+			...(options.timeout ? [`--timeout=${options.timeout}`] : []),
 			...(options.files ?? ["tests/checkout.spec.ts"]),
 		];
 
@@ -204,6 +211,9 @@ export class Project {
 			}),
 			...(options.ci && { CI: "true" }),
 			...(options.withoutAgent && { INTENT_E2E_NO_AGENT: "1" }),
+			...(options.failureContext && {
+				INTENT_E2E_FAILURE_CONTEXT: options.failureContext,
+			}),
 			...(this.#remoteDirectory && {
 				INTENT_E2E_REMOTE_DIR: this.#remoteDirectory,
 			}),
@@ -252,6 +262,7 @@ interface JsonSpec {
 			errors: { message?: string }[];
 			error?: { snippet?: string };
 			attachments: { name: string; path?: string }[];
+			annotations?: { type: string; description?: string }[];
 		}[];
 	}[];
 }
@@ -281,6 +292,13 @@ function createRunResult(
 				snippets: test.results.flatMap((result) => result.error?.snippet ?? []),
 				attachments: test.results.flatMap((result) =>
 					result.attachments.map((attachment) => attachment.name),
+				),
+				notes: test.results.flatMap((result) =>
+					(result.annotations ?? []).flatMap((annotation) =>
+						annotation.type === "intent" && annotation.description
+							? [annotation.description]
+							: [],
+					),
 				),
 				trace(attempt = 0) {
 					const trace = test.results[attempt]?.attachments.find(

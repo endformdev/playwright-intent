@@ -1,6 +1,7 @@
 import type { Page, test as base } from "@playwright/test";
 import { registerStepLoader } from "../loader/step-loader";
 import type { IntentUseOptions } from "../options";
+import { handleTestFailure } from "../step/handle-failure";
 import type { StepVariables } from "../step/intent-text";
 import { runStep } from "../step/run-step";
 import { callLineIn } from "./test-file";
@@ -55,8 +56,7 @@ export function createIntentTest<T extends typeof base>(testBase: T) {
 			const ai = Object.assign(actionsFor, actionsFor(page));
 			await use(ai);
 
-			// Planned: in `changed` mode, if the test failed outside any step,
-			// diagnose here while the page is still alive. See handle-failure.ts.
+			await handleTestFailure(scope, page);
 		},
 	});
 }

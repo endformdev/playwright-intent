@@ -10,6 +10,7 @@ import { createAgentSession } from "../agent/session";
 import {
 	IntentAgentFailedError,
 	IntentDuplicateStepError,
+	IntentError,
 	IntentNoAgentError,
 	IntentRewindError,
 	IntentStepConflictError,
@@ -18,13 +19,15 @@ import {
 import { readTestFile } from "../fixture/test-file";
 import type { TestScope } from "../fixture/test-scope";
 import { materializeStep } from "../store/file-store";
+import { clearFailedStep, readFailedStep } from "./failed-step";
 import { handleStepFailure } from "./handle-failure";
 import {
 	assertVariablesMatch,
 	placeholderNames,
 	type StepVariables,
 } from "./intent-text";
-import { parseStepHeader, renderStepFile } from "./step-file";
+import { saveStep } from "./save-step";
+import { parseStepCode, parseStepHeader } from "./step-file";
 import { stepKey } from "./step-path";
 
 /** What a step file receives. Steps can't import anything else at runtime. */
@@ -37,6 +40,9 @@ export interface StepContext {
 }
 
 type StepFunction = (context: StepContext) => Promise<void>;
+
+/** Without `actionTimeout`, a stale locator would wait for the test timeout. */
+const CHANGED_MODE_ACTION_TIMEOUT_MS = 15_000;
 
 export async function runStep(
 	scope: TestScope,
@@ -62,14 +68,18 @@ export async function runStep(
 		vars,
 	};
 
-	const source = await readStep(scope, key, intent);
-	if (source === null) {
-		await generateStep(scope, context, key, intent, line);
-	} else {
-		await replayStep(scope, context, key, intent, source);
+	try {
+		const source = await readStep(scope, key, intent);
+		const code =
+			source === null
+				? await generateStep(scope, context, key, intent, line)
+				: await replayStep(scope, context, key, intent, source, line);
+		scope.finishedSteps.push({ key, intent, code });
+	} catch (error) {
+		// These already explain themselves, so there's nothing to diagnose.
+		if (error instanceof IntentError) scope.diagnosed = true;
+		throw error;
 	}
-
-	scope.previousSteps.push(intent);
 }
 
 function claimStep(scope: TestScope, key: string, intent: string): void {
@@ -101,38 +111,66 @@ async function readStep(
 	return header.intent === intent ? source : null;
 }
 
+async function importStep(file: string): Promise<StepFunction> {
+	return (await import(pathToFileURL(file).href)).default as StepFunction;
+}
+
+/** Returns the code that ended up doing the step. */
 async function replayStep(
 	scope: TestScope,
 	context: StepContext,
 	key: string,
 	intent: string,
 	source: string,
-): Promise<void> {
+	line: number | undefined,
+): Promise<string> {
+	const code = parseStepCode(source);
 	const file = scope.localPath(key);
 	await materializeStep(file, source);
 
-	const step = (await import(pathToFileURL(file).href)).default as StepFunction;
+	if (scope.mode !== "changed" || !scope.agent) {
+		await (
+			await importStep(file)
+		)(context);
+		return code;
+	}
 
-	const before =
-		scope.mode === "changed"
-			? await context.page.ariaSnapshot().catch(() => null)
-			: null;
+	const { actionTimeout } = scope.session;
+	const running = {
+		key,
+		intent,
+		code,
+		line,
+		started: false,
+		context,
+	};
+	scope.currentStep = running;
+	context.context.setDefaultTimeout(
+		actionTimeout || CHANGED_MODE_ACTION_TIMEOUT_MS,
+	);
 
 	try {
+		const step = await importStep(file);
+		running.started = true;
 		await step(context);
+		return code;
 	} catch (error) {
-		if (scope.mode !== "changed") throw error;
-		await handleStepFailure(scope, context, { key, intent, error, before });
+		context.context.setDefaultTimeout(actionTimeout || 0);
+		return await handleStepFailure(scope, running, error);
+	} finally {
+		context.context.setDefaultTimeout(actionTimeout || 0);
+		scope.currentStep = null;
 	}
 }
 
+/** Returns the generated code. */
 async function generateStep(
 	scope: TestScope,
 	context: StepContext,
 	key: string,
 	intent: string,
 	line: number | undefined,
-): Promise<void> {
+): Promise<string> {
 	if (scope.mode === "none") {
 		throw new IntentStepMissingError(
 			`No step at .intent/${key}, and mode is "none". ` +
@@ -146,6 +184,7 @@ async function generateStep(
 	}
 	const agent = scope.agent;
 	const testFile = await readTestFile(scope, line);
+	const failed = await readFailedStep(scope, key);
 
 	scope.testInfo.setTimeout(scope.testInfo.timeout + scope.limits.timeoutMs);
 
@@ -158,8 +197,9 @@ async function generateStep(
 					testTitle: scope.testTitle,
 					testFile,
 					variableNames: placeholderNames(intent),
-					previousSteps: [...scope.previousSteps],
+					previousSteps: scope.finishedSteps.map((step) => step.intent),
 					limits: scope.limits,
+					...(failed ? { previousFailure: failed } : {}),
 				},
 				createAgentSession(context, scope.session),
 			),
@@ -179,13 +219,11 @@ async function generateStep(
 		);
 	}
 
-	const source = renderStepFile({
-		intent,
-		test: scope.testTitle,
-		code: outcome.code,
-	});
-	await scope.store.put(key, source);
-	await materializeStep(scope.localPath(key), source);
+	await saveStep(scope, key, intent, outcome.code);
+	if (failed) {
+		await clearFailedStep(scope, key);
+		scope.regeneratedSteps.push(intent);
+	}
 
 	if (outcome.page === "dirty") {
 		throw new IntentRewindError(
@@ -193,4 +231,5 @@ async function generateStep(
 				"A retry, or the next run, will replay it from a clean page.",
 		);
 	}
+	return outcome.code;
 }

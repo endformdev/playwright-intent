@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { APIRequestContext, TestInfo } from "@playwright/test";
-import type { IntentAgent } from "../agent/agent";
+import type { FailureContextProvider, IntentAgent } from "../agent/agent";
 import { createAiSdkAgent } from "../agent/ai-sdk-agent";
 import type { SessionOptions } from "../agent/session";
 import { IntentNotImplementedError } from "../errors";
@@ -11,6 +11,7 @@ import {
 	type IntentOptions,
 	resolveMode,
 } from "../options";
+import type { RunningStep } from "../step/handle-failure";
 import { INTENT_DIRECTORY } from "../step/step-path";
 import { createFileStore } from "../store/file-store";
 import type { IntentStore } from "../store/store";
@@ -29,9 +30,22 @@ export interface TestScope {
 	testTitle: string;
 	/** Step keys used in this attempt, to catch duplicates. */
 	claimedKeys: Set<string>;
-	/** Intents that have finished in this attempt, in run order. */
-	previousSteps: string[];
+	/** Steps that have finished in this attempt, in run order. */
+	finishedSteps: FinishedStep[];
+	/** The replayed step in progress, which a test timeout can interrupt. */
+	currentStep: RunningStep | null;
+	/** This attempt's failure is already dealt with. */
+	diagnosed: boolean;
+	/** Intents this attempt generated after an earlier failure. */
+	regeneratedSteps: string[];
+	failureContext?: FailureContextProvider;
 	localPath(key: string): string;
+}
+
+export interface FinishedStep {
+	key: string;
+	intent: string;
+	code: string;
 }
 
 export function createTestScope(
@@ -64,7 +78,11 @@ export function createTestScope(
 		titles,
 		testTitle: titles.join(" > "),
 		claimedKeys: new Set(),
-		previousSteps: [],
+		finishedSteps: [],
+		currentStep: null,
+		diagnosed: false,
+		regeneratedSteps: [],
+		failureContext: options?.context,
 		localPath: (key) => path.join(intentRoot, ...key.split("/")),
 	};
 }

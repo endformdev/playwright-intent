@@ -10,7 +10,7 @@ export interface IntentAgent {
 	/** A step has no code yet. The session is on the page before the step. */
 	generate(task: GenerateTask, session: AgentSession): Promise<GenerateOutcome>;
 	/** Something failed. The session is on the live, failed page. */
-	diagnose(task: DiagnoseTask, session: AgentSession): Promise<FailureDecision>;
+	diagnose(task: DiagnoseTask, session: AgentSession): Promise<DiagnoseOutcome>;
 }
 
 export interface AgentSession {
@@ -92,10 +92,11 @@ export interface DiagnoseTask extends StepTask {
 	location: "step" | "outside";
 	error: string;
 	code?: string;
-	/** The snapshot from just before the step, and whether it still matches. */
-	before?: string | null;
+	/** Whether the failed step ran nothing that could change the page. */
 	pageUnchanged: boolean;
-	/** Steps already regenerated in this run, to avoid repeating work. */
+	/** The code of the steps that finished before the failure. */
+	steps: { intent: string; code: string }[];
+	/** Steps this attempt generated after an earlier failure. */
 	regeneratedSteps: string[];
 	/** Text returned by `use.intent.context`. */
 	extraContext?: string;
@@ -103,13 +104,15 @@ export interface DiagnoseTask extends StepTask {
 
 export type FailureDecision =
 	/** Only offered when `location` is `step`. */
-	| { action: "repair"; code: string; page: "ready" | "dirty" }
+	| { action: "repair"; code: string; page: "ready" | "dirty"; reason?: string }
 	/** Move these steps from this test aside, and redo them on the retry. */
-	| { action: "regenerate"; steps: string[] }
+	| { action: "regenerate"; steps: string[]; reason?: string }
 	/** Looks like a one-off. Leave the cache alone. */
 	| { action: "rerun"; reason: string }
 	/** Looks like a real bug. Leave the cache alone. */
 	| { action: "fail"; reason: string };
+
+export type DiagnoseOutcome = FailureDecision & { transcript?: string };
 
 export interface FailureContextInput {
 	testTitle: string;

@@ -9,9 +9,17 @@ import type { TestScope } from "./test-scope";
  * A call from a helper in another file resolves to the helper's call site.
  */
 export function callLineIn(file: string): number | undefined {
+	return lineInStack(new Error().stack, file);
+}
+
+/** The line of the first stack frame in `file`. */
+export function lineInStack(
+	stack: string | undefined,
+	file: string,
+): number | undefined {
 	const locations = [file, pathToFileURL(file).href];
 
-	for (const frame of new Error().stack?.split("\n") ?? []) {
+	for (const frame of stack?.split("\n") ?? []) {
 		for (const location of locations) {
 			const [, afterFile] = frame.split(`${location}:`);
 			const line = afterFile?.match(/^(\d+):\d+/)?.[1];

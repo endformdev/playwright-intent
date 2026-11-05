@@ -1,7 +1,8 @@
-import type { LanguageModel, ToolSet } from "ai";
-import { IntentNotImplementedError } from "../errors";
+import type { JSONSchema7, LanguageModel, ToolSet } from "ai";
 import type {
 	AgentSession,
+	DiagnoseOutcome,
+	DiagnoseTask,
 	GenerateOutcome,
 	GenerateTask,
 	IntentAgent,
@@ -30,6 +31,60 @@ The code you finish with is saved and replayed in later test runs without you, o
 Finish with \`page: "ready"\` when the page is where your code would leave it. Use \`page: "dirty"\` when your code is right but exploring left the page somewhere else, for example if you submitted a form twice.
 
 If the app looks broken, or the step asks for something that isn't there, call \`give_up\` and say why. Don't work around it.`;
+
+const DIAGNOSE_INSTRUCTIONS = `A Playwright test just failed. You're on the real page it failed on, and you decide what happens next.
+
+The test's steps are saved code, generated earlier from natural language. What you decide depends on why the test failed:
+
+- The app works, but the saved code no longer matches it, because the UI changed. Fix it with \`repair\` if the failed step alone is wrong, or \`regenerate\` if other steps need redoing too, or the page is too far along to fix from here.
+- The app is wrong: a server error, an error page, missing data, or a feature that doesn't do what the test expects. Call \`fail\` and say what's broken. A test that finds a bug has done its job, so don't touch the steps.
+- It looks like a one-off, like a slow response or a network error, and the page works when you check. Call \`rerun\`.
+
+Look before you decide. Use \`run\` to read the page, try locators, and check whether the app really works. The page is live, so anything you do really happens. Code passed to \`run\` is a list of statements in an async function, with \`page\`, \`context\`, \`request\`, \`expect\` and \`vars\` in scope. \`return\` a value or use \`console.log\` to see something. Actions time out after 5 seconds.
+
+To \`repair\`, carry out the step for real with \`run\`, then pass the final code. Use \`page: "ready"\` when the page is where your code would leave it, and \`page: "dirty"\` when it isn't. The code replaces the step and is replayed in later runs, so:
+- Keep what the step checks. Update a locator or a label, but never remove or loosen an assertion to get past a failure. If the old assertion was right and the app no longer meets it, that's a \`fail\`.
+- Use \`getByTestId\` when an element has a test id. Otherwise use locators a user would recognise, like \`getByRole\`, \`getByLabel\` and \`getByText\`.
+- Never put \`aria-ref\` values in the code, and never rely on text that only this run has, like generated names or ids.
+- Read variables from \`vars\`. Match URLs by path, never by host.
+- Wait for conditions, never for a fixed time. Don't use \`force: true\` or \`dispatchEvent\`.
+- Run every assertion exactly as you'll save it.
+
+\`regenerate\` takes the exact text of the steps to redo. Anything else in the test stays as it is.`;
+
+const REASON_SCHEMA = {
+	type: "object",
+	properties: {
+		reason: { type: "string", description: "Why, in one sentence." },
+	},
+	required: ["reason"],
+	additionalProperties: false,
+} as const;
+
+const REPAIR_SCHEMA = {
+	type: "object",
+	properties: {
+		code: { type: "string", description: "The statements to save." },
+		page: { type: "string", enum: ["ready", "dirty"] },
+		reason: { type: "string", description: "Why, in one sentence." },
+	},
+	required: ["code", "page", "reason"],
+	additionalProperties: false,
+} as const;
+
+const REGENERATE_SCHEMA = {
+	type: "object",
+	properties: {
+		steps: {
+			type: "array",
+			items: { type: "string" },
+			description: "The exact text of each step to redo.",
+		},
+		reason: { type: "string", description: "Why, in one sentence." },
+	},
+	required: ["steps", "reason"],
+	additionalProperties: false,
+} as const;
 
 const FINISH_SCHEMA = {
 	type: "object",
@@ -72,26 +127,43 @@ const MAX_CONSOLE_LINES = 20;
 export function createAiSdkAgent(model: LanguageModel): IntentAgent {
 	return {
 		generate: (task, session) => generate(model, task, session),
-		diagnose: async () => {
-			throw new IntentNotImplementedError(
-				"The built-in agent can't diagnose failures yet.",
-			);
-		},
+		diagnose: (task, session) => diagnose(model, task, session),
 	};
 }
 
-async function generate(
+interface EndTool {
+	description: string;
+	schema: JSONSchema7;
+}
+
+interface Run {
+	instructions: string;
+	prompt: string;
+	maxTurns: number;
+	timeoutMs: number;
+	/** Tools that end the task. They run nothing: the call is the answer. */
+	endTools: Record<string, EndTool>;
+}
+
+interface AgentRun {
+	/** The end tool the agent called, if it got that far. */
+	end: { name: string; input: unknown } | null;
+	transcript: string[];
+}
+
+async function runAgent(
 	model: LanguageModel,
-	task: GenerateTask,
 	session: AgentSession,
-): Promise<GenerateOutcome> {
+	run: Run,
+): Promise<AgentRun> {
 	const { generateText, isStepCount, jsonSchema, tool } = await import("ai");
 
 	const transcript: string[] = [];
-	const tools = {
+	const tools: ToolSet = {
 		run: tool({
 			description: "Runs Playwright statements on the live page.",
 			inputSchema: jsonSchema<{ code: string }>(RUN_SCHEMA),
+			strict: true,
 			execute: async ({ code }) => {
 				const output = formatRunResult(await session.run(code));
 				transcript.push(`--- run\n${code}\n--- result\n${output}`);
@@ -125,62 +197,172 @@ async function generate(
 				],
 			}),
 		}),
-		finish: tool({
-			description: "Saves the final code for this step. Ends the task.",
-			inputSchema: jsonSchema<{ code: string; page: "ready" | "dirty" }>(
-				FINISH_SCHEMA,
-			),
-		}),
-		give_up: tool({
-			description: "Stops without saving, because the step can't be done.",
-			inputSchema: jsonSchema<{ reason: string }>(GIVE_UP_SCHEMA),
-		}),
-	} satisfies ToolSet;
+		...Object.fromEntries(
+			Object.entries(run.endTools).map(([name, { description, schema }]) => [
+				name,
+				tool({ description, inputSchema: jsonSchema(schema), strict: true }),
+			]),
+		),
+	};
 
 	const result = await generateText({
 		model,
-		instructions: GENERATE_INSTRUCTIONS,
-		prompt: describeTask(task),
+		instructions: run.instructions,
+		prompt: run.prompt,
 		tools,
 		toolChoice: "required",
-		stopWhen: isStepCount(task.limits.maxTurns),
-		abortSignal: AbortSignal.timeout(task.limits.timeoutMs),
+		stopWhen: isStepCount(run.maxTurns),
+		abortSignal: AbortSignal.timeout(run.timeoutMs),
 		providerOptions: { openai: { parallelToolCalls: false } },
 	});
 
-	const turns = result.steps.length;
 	const { inputTokens, outputTokens } = result.totalUsage;
 	transcript.push(
-		`--- ${turns} turns, ${inputTokens} input tokens, ${outputTokens} output tokens`,
+		`--- ${result.steps.length} turns, ${inputTokens} input tokens, ${outputTokens} output tokens`,
 	);
 
-	for (const call of result.staticToolCalls) {
-		if (call.toolName === "finish") {
-			const { code, page } = call.input;
-			transcript.push(`--- finish (${page})\n${code}`);
-			return {
-				status: "solved",
-				code,
-				page,
-				transcript: transcript.join("\n"),
-			};
-		}
-		if (call.toolName === "give_up") {
-			const { reason } = call.input;
-			transcript.push(`--- give up\n${reason}`);
-			return {
-				status: "failed",
-				message: reason,
-				transcript: transcript.join("\n"),
-			};
-		}
+	const call = result.toolCalls.find(
+		({ toolName }) => toolName in run.endTools,
+	);
+	if (call) {
+		transcript.push(
+			`--- ${call.toolName}\n${JSON.stringify(call.input, null, 2)}`,
+		);
 	}
+	return {
+		end: call ? { name: call.toolName, input: call.input } : null,
+		transcript,
+	};
+}
 
+async function generate(
+	model: LanguageModel,
+	task: GenerateTask,
+	session: AgentSession,
+): Promise<GenerateOutcome> {
+	const { end, transcript: lines } = await runAgent(model, session, {
+		instructions: GENERATE_INSTRUCTIONS,
+		prompt: describeTask(task),
+		maxTurns: task.limits.maxTurns,
+		timeoutMs: task.limits.timeoutMs,
+		endTools: {
+			finish: {
+				description: "Saves the final code for this step. Ends the task.",
+				schema: FINISH_SCHEMA,
+			},
+			give_up: {
+				description: "Stops without saving, because the step can't be done.",
+				schema: GIVE_UP_SCHEMA,
+			},
+		},
+	});
+	const transcript = lines.join("\n");
+
+	if (end?.name === "finish") {
+		const { code, page } = end.input as {
+			code: string;
+			page: "ready" | "dirty";
+		};
+		return { status: "solved", code, page, transcript };
+	}
+	if (end?.name === "give_up") {
+		const { reason } = end.input as { reason: string };
+		return { status: "failed", message: reason, transcript };
+	}
 	return {
 		status: "failed",
 		message: `The agent didn't finish within ${task.limits.maxTurns} turns.`,
-		transcript: transcript.join("\n"),
+		transcript,
 	};
+}
+
+async function diagnose(
+	model: LanguageModel,
+	task: DiagnoseTask,
+	session: AgentSession,
+): Promise<DiagnoseOutcome> {
+	const observation = await session.observe();
+	const { end, transcript: lines } = await runAgent(model, session, {
+		instructions: DIAGNOSE_INSTRUCTIONS,
+		prompt: `${describeFailure(task)}\n\nThe page now:\n${formatObservation(observation)}`,
+		maxTurns: task.limits.maxTurns,
+		timeoutMs: task.limits.timeoutMs,
+		endTools: {
+			...(task.location === "step"
+				? {
+						repair: {
+							description:
+								"Saves new code for the failed step, after you've done the step on the page.",
+							schema: REPAIR_SCHEMA,
+						},
+					}
+				: {}),
+			regenerate: {
+				description:
+					"Throws away these steps. The next attempt generates them from a clean page.",
+				schema: REGENERATE_SCHEMA,
+			},
+			rerun: {
+				description:
+					"Leaves the steps alone, because this looks like a one-off.",
+				schema: REASON_SCHEMA,
+			},
+			fail: {
+				description: "Leaves the steps alone, because the app has a real bug.",
+				schema: REASON_SCHEMA,
+			},
+		},
+	});
+	const transcript = lines.join("\n");
+
+	switch (end?.name) {
+		case "repair": {
+			const input = end.input as {
+				code: string;
+				page: "ready" | "dirty";
+				reason: string;
+			};
+			return { action: "repair", ...input, transcript };
+		}
+		case "regenerate": {
+			const input = end.input as { steps: string[]; reason: string };
+			return { action: "regenerate", ...input, transcript };
+		}
+		case "rerun":
+		case "fail": {
+			const { reason } = end.input as { reason: string };
+			return { action: end.name, reason, transcript };
+		}
+		default:
+			return {
+				action: "fail",
+				reason: `The agent didn't decide within ${task.limits.maxTurns} turns.`,
+				transcript,
+			};
+	}
+}
+
+function describeFailure(task: DiagnoseTask): string {
+	const steps = task.steps.map(
+		({ intent, code }) => `Step: ${intent}\n${code}`,
+	);
+	return [
+		task.location === "step"
+			? `A saved step failed: ${task.intent}\n\nIts code:\n${task.code}\n\nThis step ${task.pageUnchanged ? "failed before it did anything to the page" : "may have changed the page before it failed"}.`
+			: "A line of the hand-written test failed, after its steps ran.",
+		`Error:\n${task.error}`,
+		`Test: ${task.testTitle}`,
+		steps.length > 0
+			? `Steps that passed in this test:\n\n${steps.join("\n\n")}`
+			: "No other steps have passed in this test.",
+		task.regeneratedSteps.length > 0
+			? `Already regenerated after an earlier failure, so doing that again probably won't help:\n${task.regeneratedSteps.map((step) => `- ${step}`).join("\n")}`
+			: "",
+		task.extraContext ? `What else we know:\n${task.extraContext}` : "",
+		`Test file ${task.testFile.path}${task.testFile.line ? ', with the step marked ">>"' : ""}:\n${markLine(task.testFile.source, task.testFile.line)}`,
+	]
+		.filter(Boolean)
+		.join("\n\n");
 }
 
 function describeTask(task: GenerateTask): string {
