@@ -1,4 +1,15 @@
-# playwright-intent
+<h1 align="center">Playwright Intent</h1>
+
+<p align="center">
+	<strong>Plain-language Playwright steps, saved as code you can review.</strong>
+</p>
+
+<p align="center">
+	<a href="https://www.npmjs.com/package/playwright-intent"><img src="https://img.shields.io/npm/v/playwright-intent" alt="npm version" /></a>
+	<a href="LICENSE"><img src="https://img.shields.io/npm/l/playwright-intent" alt="license" /></a>
+</p>
+
+---
 
 Write Playwright steps in plain language. An agent turns each one into TypeScript once, and every later run replays that code like any other Playwright test.
 
@@ -92,6 +103,28 @@ fileStore({ onChange: { local: keep(), ci: fail() } });
 fileStore({ onChange: keep() });
 ```
 
-## Status
+## Project status
 
-This is early, and the API may change. See [docs/design.md](docs/design.md) for how it works, and [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and releasing.
+This is early, and the API may change. See [docs/design.md](docs/design.md) for how it works.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and releasing.
+
+## License
+
+[Apache-2.0](LICENSE).
+
+Playwright is a trademark of its respective owner. This project is not affiliated with or endorsed by the Playwright project.
+
+---
+
+<p align="center">Built by</p>
+<p align="center">
+	<a href="https://endform.dev">
+		<picture>
+			<source media="(prefers-color-scheme: dark)" srcset="docs/assets/endform-logo-dark.svg" />
+			<img src="docs/assets/endform-logo.svg" height="24" alt="Endform" />
+		</picture>
+	</a>
+</p>
