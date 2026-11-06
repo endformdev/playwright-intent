@@ -89,6 +89,7 @@ export async function runStep(
  */
 async function clearStepsForAllMode(scope: TestScope): Promise<void> {
 	if (scope.mode !== "all" || scope.testInfo.retry > 0 || scope.cleared) return;
+	await scope.onChange({ type: "clear", test: scope.testTitle });
 	scope.cleared = true;
 
 	const keys = await scope.store.list(testFolder(scope));
@@ -195,6 +196,7 @@ async function generateStep(
 		);
 	}
 	const agent = scope.agent;
+	await scope.onChange({ type: "generate", test: scope.testTitle, intent });
 	const testFile = await readTestFile(scope, line);
 	const failed = await readFailedStep(scope, key);
 

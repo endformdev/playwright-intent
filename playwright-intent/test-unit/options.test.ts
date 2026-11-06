@@ -2,9 +2,9 @@ import { expect, test } from "vitest";
 import { IntentError } from "../src/errors";
 import { resolveMode } from "../src/options";
 
-test("defaults to missing locally and none in CI", () => {
+test("defaults to missing, in CI too", () => {
 	expect(resolveMode(undefined, {})).toBe("missing");
-	expect(resolveMode(undefined, { CI: "true" })).toBe("none");
+	expect(resolveMode(undefined, { CI: "true" })).toBe("missing");
 });
 
 test("prefers PW_INTENT over the config", () => {

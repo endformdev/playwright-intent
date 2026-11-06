@@ -1,9 +1,16 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { IntentStore } from "./store";
+import type { OnChange } from "./on-change";
+import type { IntentStore, IntentStoreProvider } from "./store";
 
-/** The default store: step files on disk, usually committed to Git. */
-export function createFileStore(root: string): IntentStore {
+/** Keeps steps in `.intent` beside the config, usually committed to Git. */
+export function fileStore(options: {
+	onChange: OnChange;
+}): IntentStoreProvider {
+	return { onChange: options.onChange, open: createFileStore };
+}
+
+function createFileStore(root: string): IntentStore {
 	const resolve = (key: string) => path.join(root, ...key.split("/"));
 
 	return {

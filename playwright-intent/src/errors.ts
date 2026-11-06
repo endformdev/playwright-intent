@@ -6,6 +6,12 @@ export class IntentError extends Error {
 	}
 }
 
+/** `use.intent` is missing something it can't run without. */
+export class IntentConfigError extends IntentError {}
+
+/** `onChange` stopped a step from changing. */
+export class IntentChangeRejectedError extends IntentError {}
+
 /** A step has no cached code, and the current mode may not generate it. */
 export class IntentStepMissingError extends IntentError {}
 

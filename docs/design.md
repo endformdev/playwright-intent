@@ -34,6 +34,19 @@ Playwright's Babel transform shifts line numbers, and it can't map them back for
 
 Code always runs from disk, because Playwright reads the file for snippets and trace sources. A remote store fills `.intent` just before each import.
 
+## Storing steps
+
+`use.intent.store` is required, and a store can't be set up without `onChange`. A generated step is only useful if something keeps it, and that depends on where the run happens, so nobody should get it by default.
+
+`onChange` is one function, or `{ local, ci }` chosen by the `CI` environment variable. It's a gate: it runs in the worker just before the agent starts, whether generating, diagnosing, or clearing steps for `all`. Throwing stops the change, so nothing is spent on the model.
+
+- `keep()` allows the change, and it stays on disk to review and commit.
+- `fail()` throws `IntentChangeRejectedError`. During a diagnosis the test keeps its own error, and the rejection is reported.
+
+A `{ local, ci }` pair keeps CI from being forgotten. A job that needs something else, like a nightly self-heal, can use plain JS in the config.
+
+Playwright's types make every `use` key optional, so the fixture also throws `IntentConfigError` when `store` is missing, in every mode.
+
 ## Generating steps
 
 The library owns the browser, cache and limits. An `IntentAgent` observes, runs code through its session, and returns one outcome. Exploration is never saved.
@@ -61,7 +74,7 @@ The first normal replay proves a generated step works.
 
 `all` clears a test's steps when its first attempt starts, so everything is a miss. A retry replays what the run has already generated, and generates the rest. If an attempt fails early, the steps it didn't reach stay cleared until something generates them, so `all` needs Git or another way back.
 
-Configuration lives only in `playwright.config.ts`, under `use.intent`. `PW_INTENT` overrides the mode for one run. With neither set, the mode is `none` in CI and `missing` elsewhere.
+Configuration lives only in `playwright.config.ts`, under `use.intent`. `PW_INTENT` overrides the mode for one run. With neither set, the mode is `missing`. CI has no default of its own, because `onChange` decides whether steps can change there.
 
 ## Failures
 
@@ -100,12 +113,22 @@ A repair that changes a step's assertions is listed in the run output, but isn't
 
 See [open-questions.md](open-questions.md) for postponed questions, and [step-quality.md](step-quality.md) for what trials showed about the agent's code. Also postponed:
 
-- `cache-api`, remote stores, branch handling and review flows.
+- `cache-api`, remote stores, branch handling and review flows. Retries read what a run just generated, so a shared remote store needs a way to hold changes until they're accepted.
+- Handling a run's changes as a batch, like a pull request comment. See [Run-level change handling](#run-level-change-handling).
 - Sharing steps between tests, and separate caches per browser project.
 - Pruning orphaned files, and letting steps import helpers.
 - A CLI, a summary reporter, `-u` integration, and type-checking step files.
 - `ai.expect`, diagnosis in CI, and external agents.
 - Replacing a step mid-process. Node caches each import, so a test that repeats in the same worker after a repair, with `--repeat-each`, replays the old code until the next process.
+
+### Run-level change handling
+
+`onChange` runs per change in a worker, so it can't see a whole run. A pull request comment needs a reporter:
+
+- Workers attach each change to its test, and the reporter collects them in `onTestEnd` and delivers them in `onEnd`.
+- `defineConfig` from `playwright-intent` will be required, because it's how we add global hooks like this reporter without a second config line. It's a plain re-export until the first hook needs it. The fixture can then read `testInfo.config.reporter` and fail loudly if it's missing.
+- `playwright merge-reports` runs reporters too, so sharded CI gets one comment.
+- Playwright also has a plugin hook, `config["@playwright/test"].plugins`, with `setup` and `teardown`. It's private, and it wouldn't run under `merge-reports`, so we shouldn't use it.
 
 ### Using a ChatGPT plan
 

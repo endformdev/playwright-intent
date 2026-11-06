@@ -3,6 +3,7 @@ import type { APIRequestContext, TestInfo } from "@playwright/test";
 import type { FailureContextProvider, IntentAgent } from "../agent/agent";
 import { createAiSdkAgent } from "../agent/ai-sdk-agent";
 import type { SessionOptions } from "../agent/session";
+import { IntentConfigError } from "../errors";
 import {
 	DEFAULT_LIMITS,
 	type IntentLimits,
@@ -12,7 +13,7 @@ import {
 } from "../options";
 import type { RunningStep } from "../step/handle-failure";
 import { INTENT_DIRECTORY } from "../step/step-path";
-import { createFileStore } from "../store/file-store";
+import { type ChangeHandler, resolveChangeHandler } from "../store/on-change";
 import type { IntentStore } from "../store/store";
 
 /** Everything the steps of one test attempt share. */
@@ -20,6 +21,7 @@ export interface TestScope {
 	mode: IntentMode;
 	agent: IntentAgent | null;
 	store: IntentStore;
+	onChange: ChangeHandler;
 	limits: IntentLimits;
 	session: SessionOptions;
 	testInfo: TestInfo;
@@ -55,7 +57,14 @@ export function createTestScope(
 	request: APIRequestContext,
 	session: SessionOptions,
 ): TestScope {
-	const mode = resolveMode(options?.mode);
+	// `use` is partial in Playwright's types, so `intent` can be left out.
+	if (!options?.store?.onChange) {
+		throw new IntentConfigError(
+			"Set use.intent.store in playwright.config.ts, including onChange: " +
+				"store: fileStore({ onChange: { local: keep(), ci: fail() } })",
+		);
+	}
+	const mode = resolveMode(options.mode);
 
 	const configFile = testInfo.config.configFile;
 	const root = configFile ? path.dirname(configFile) : testInfo.config.rootDir;
@@ -65,10 +74,10 @@ export function createTestScope(
 	return {
 		mode,
 		agent:
-			options?.agent ??
-			(options?.model ? createAiSdkAgent(options.model) : null),
-		store: options?.store ?? createFileStore(intentRoot),
-		limits: { ...DEFAULT_LIMITS, ...options?.limits },
+			options.agent ?? (options.model ? createAiSdkAgent(options.model) : null),
+		store: options.store.open(intentRoot),
+		onChange: resolveChangeHandler(options.store.onChange),
+		limits: { ...DEFAULT_LIMITS, ...options.limits },
 		session,
 		testInfo,
 		request,
@@ -81,7 +90,7 @@ export function createTestScope(
 		cleared: false,
 		diagnosed: false,
 		regeneratedSteps: [],
-		failureContext: options?.context,
+		failureContext: options.context,
 		localPath: (key) => path.join(intentRoot, ...key.split("/")),
 	};
 }

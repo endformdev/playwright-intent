@@ -24,7 +24,7 @@ Every case is forced with one of five levers, so no flow depends on timing or lu
 | The agent | `project.scriptAgent()`              | Every outcome: solved, dirty, failed, and each failure decision         |
 | The app   | `project.run({ shop })`              | Stale steps, redesigns and real bugs, by changing the shop between runs |
 | The tests | `project.replaceInFile()`            | Reworded intents, renamed tests, moved steps                            |
-| The run   | `project.run({ mode, retries, ci })` | Modes, retries, CI defaults                                             |
+| The run   | `project.run({ mode, retries, ci })` | Modes, retries, CI                                                      |
 | The cache | `project.writeStep()`                | Corrupted or conflicting step files                                     |
 
 The usual pattern mirrors real life: generate against the `baseline` shop, change the shop, then run again.

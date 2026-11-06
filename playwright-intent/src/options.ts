@@ -1,7 +1,7 @@
 import type { LanguageModel } from "ai";
 import type { FailureContextProvider, IntentAgent } from "./agent/agent";
 import { IntentError } from "./errors";
-import type { IntentStore } from "./store/store";
+import type { IntentStoreProvider } from "./store/store";
 
 export const INTENT_MODES = ["none", "missing", "changed", "all"] as const;
 
@@ -29,8 +29,8 @@ export interface IntentOptions {
 	model?: LanguageModel;
 	/** Replaces the built-in agent, and takes priority over `model`. */
 	agent?: IntentAgent;
-	/** Where steps are stored. Defaults to `.intent` beside the config. */
-	store?: IntentStore;
+	/** Where steps are stored, and what happens when they change. */
+	store: IntentStoreProvider;
 	/** Adds your own text, like failure history, to a diagnosis. */
 	context?: FailureContextProvider;
 	limits?: Partial<IntentLimits>;
@@ -47,14 +47,14 @@ export const DEFAULT_LIMITS: IntentLimits = {
 };
 
 /**
- * `PW_INTENT` wins, then `use.intent.mode`. With neither set, CI never calls a
- * model: a forgotten setting shouldn't spend money or change the cache there.
+ * `PW_INTENT` wins, then `use.intent.mode`. CI has no default of its own:
+ * the required `onChange` decides whether steps can change there.
  */
 export function resolveMode(
 	configured: IntentMode | undefined,
 	env: NodeJS.ProcessEnv = process.env,
 ): IntentMode {
-	const mode = env.PW_INTENT || configured || (env.CI ? "none" : "missing");
+	const mode = env.PW_INTENT || configured || "missing";
 	if (!INTENT_MODES.includes(mode as IntentMode)) {
 		throw new IntentError(
 			`Unknown intent mode "${mode}". Use one of: ${INTENT_MODES.join(", ")}.`,

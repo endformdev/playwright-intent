@@ -105,16 +105,7 @@ flow.describe("replaying steps", () => {
 		expect(run.test(CHECKOUT_TEST).errors[0]).toContain('mode is "none"');
 	});
 
-	flow("CI never generates unless told to", async ({ project }) => {
-		await project.scriptAgent(checkoutScript());
-
-		const run = await project.run({ ci: true });
-
-		expect(run.exitCode).toBe(1);
-		expect(await project.agentCalls()).toEqual([]);
-	});
-
-	flow("outside CI, a miss generates by default", async ({ project }) => {
+	flow("a miss generates by default", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
 
 		const run = await project.run();

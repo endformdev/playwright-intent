@@ -112,6 +112,11 @@ async function diagnoseFailure(
 	let decision: DiagnoseOutcome;
 	try {
 		const intent = step?.intent ?? "";
+		await scope.onChange({
+			type: "diagnose",
+			test: scope.testTitle,
+			...(step && { intent }),
+		});
 
 		decision = await test.step(
 			"agent: diagnose",
