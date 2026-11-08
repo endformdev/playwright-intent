@@ -1,4 +1,4 @@
-import type { OnChange } from "./on-change";
+import type { Changes } from "./changes";
 
 /**
  * Where step source lives. Keys are relative, POSIX-style step paths.
@@ -16,7 +16,7 @@ export interface IntentStore {
 
 /** What `use.intent.store` takes: a store, and what happens to its changes. */
 export interface IntentStoreProvider {
-	onChange: OnChange;
+	changes: Changes;
 	/** Opens the store. `root` is the `.intent` folder beside the config. */
 	open(root: string): IntentStore;
 }

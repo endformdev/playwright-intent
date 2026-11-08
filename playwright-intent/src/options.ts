@@ -58,7 +58,7 @@ export const DEFAULT_LIMITS: IntentLimits = {
 
 /**
  * `PW_INTENT` wins, then `use.intent.mode`. CI has no default of its own:
- * the required `onChange` decides whether steps can change there.
+ * the required `changes` decides whether steps can change there.
  */
 export function resolveMode(
 	configured: IntentMode | undefined,

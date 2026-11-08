@@ -1,13 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { OnChange } from "./on-change";
+import type { Changes } from "./changes";
 import type { IntentStore, IntentStoreProvider } from "./store";
 
 /** Keeps steps in `.intent` beside the config, usually committed to Git. */
-export function fileStore(options: {
-	onChange: OnChange;
-}): IntentStoreProvider {
-	return { onChange: options.onChange, open: createFileStore };
+export function fileStore(options: { changes: Changes }): IntentStoreProvider {
+	return { changes: options.changes, open: createFileStore };
 }
 
 function createFileStore(root: string): IntentStore {
