@@ -96,7 +96,7 @@ Retries are the only rewind, because a fixture can't restart a test. In `changed
 
 The agent's reasons appear in the run output and as `intent` annotations, and each diagnosis attaches a transcript. If the diagnosis itself fails, the test keeps its own error.
 
-Hitting the turn or time limit, or a model error, says nothing about the app, so the agent returns `unanswered` from both generating and diagnosing. The test fails, naming the limit or error, nothing is saved or moved, and nothing goes on to diagnose it. A diagnosis that doesn't answer leaves the test its own error.
+Hitting the turn or time limit, or a model error, says nothing about the app, so the built-in agent ends with a `fail` that names the limit or error. While generating, the test fails with that reason and nothing goes on to diagnose it. During a diagnosis, the test keeps its own error. Either way, no steps change.
 
 The library enforces these limits, whatever the agent asks for:
 

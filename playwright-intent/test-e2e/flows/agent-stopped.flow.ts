@@ -114,7 +114,6 @@ flow.describe("an agent that never answers", () => {
 					expect(test.errors[0]).toContain(ownError);
 					expect(test.errors[0]).not.toContain(says);
 					expect(test.notes).toHaveLength(1);
-					expect(test.notes[0]).toContain("never answered");
 					expect(test.notes[0]).toContain(says);
 					expect(await stepContents(project)).toEqual(before);
 				},

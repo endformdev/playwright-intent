@@ -43,11 +43,11 @@ interface Run {
 	endTools: Record<string, ToolText>;
 }
 
-type AgentRun = { transcript: string[] } & (
-	| { end: { name: string; input: unknown } }
-	/** The agent never called an end tool, and `stopped` says what ended it. */
-	| { end: null; stopped: string }
-);
+interface AgentRun {
+	/** The end tool the agent called, or a `fail` saying what stopped it. */
+	end: { name: string; input: unknown };
+	transcript: string[];
+}
 
 async function runAgent(
 	model: LanguageModel,
@@ -103,9 +103,9 @@ async function runAgent(
 		),
 	};
 
-	const stop = (stopped: string): AgentRun => {
-		transcript.push(`--- stopped\n${stopped}`);
-		return { end: null, stopped, transcript };
+	const stop = (reason: string): AgentRun => {
+		transcript.push(`--- stopped\n${reason}`);
+		return { end: { name: "fail", input: { reason } }, transcript };
 	};
 	const timeout = AbortSignal.timeout(run.timeoutMs);
 	// The signal doesn't interrupt a tool, and `run` can execute code that hangs.
@@ -158,26 +158,23 @@ async function generate(
 	task: GenerateTask,
 	session: AgentSession,
 ): Promise<GenerateOutcome> {
-	const run = await runAgent(model, session, {
+	const { end, transcript: lines } = await runAgent(model, session, {
 		instructions,
 		prompt: describeTask(task),
 		maxTurns: task.limits.maxTurns,
 		timeoutMs: task.limits.timeoutMs,
 		endTools: { finish: TOOL_TEXT.finish, fail: TOOL_TEXT.failStep },
 	});
-	const transcript = run.transcript.join("\n");
+	const transcript = lines.join("\n");
 
-	if (run.end === null) {
-		return { status: "unanswered", message: run.stopped, transcript };
-	}
-	if (run.end.name === "finish") {
-		const { code, page } = run.end.input as {
+	if (end.name === "finish") {
+		const { code, page } = end.input as {
 			code: string;
 			page: "ready" | "dirty";
 		};
 		return { status: "solved", code, page, transcript };
 	}
-	const { reason } = run.end.input as { reason: string };
+	const { reason } = end.input as { reason: string };
 	return { status: "failed", message: reason, transcript };
 }
 
@@ -188,7 +185,7 @@ async function diagnose(
 	session: AgentSession,
 ): Promise<DiagnoseOutcome> {
 	const observation = await session.observe();
-	const run = await runAgent(model, session, {
+	const { end, transcript: lines } = await runAgent(model, session, {
 		instructions,
 		prompt: `${describeFailure(task)}\n\nThe page now:\n${formatObservation(observation)}`,
 		maxTurns: task.limits.maxTurns,
@@ -200,12 +197,7 @@ async function diagnose(
 			fail: TOOL_TEXT.fail,
 		},
 	});
-	const transcript = run.transcript.join("\n");
-
-	if (run.end === null) {
-		return { action: "unanswered", reason: run.stopped, transcript };
-	}
-	const { end } = run;
+	const transcript = lines.join("\n");
 
 	switch (end.name) {
 		case "repair": {

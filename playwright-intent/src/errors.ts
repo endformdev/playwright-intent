@@ -27,7 +27,7 @@ export class IntentVariablesError extends IntentError {}
 /** The mode needs an agent, but `use.intent` has no `model` or `agent`. */
 export class IntentNoAgentError extends IntentError {}
 
-/** The agent finished with `failed` or `unanswered`. Nothing was saved. */
+/** The agent finished with `failed`. Nothing was saved. */
 export class IntentAgentFailedError extends IntentError {}
 
 /**

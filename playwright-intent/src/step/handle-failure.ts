@@ -222,13 +222,6 @@ async function applyDecision(
 		case "fail":
 			report(scope, `Left the steps alone after ${label} failed${because}`);
 			return { outcome: "failed" };
-
-		case "unanswered":
-			report(
-				scope,
-				`Left the steps alone because the agent never answered about ${label}${because}`,
-			);
-			return { outcome: "failed" };
 	}
 }
 
