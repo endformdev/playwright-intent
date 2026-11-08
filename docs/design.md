@@ -71,9 +71,9 @@ The first normal replay proves a generated step works.
 
 ## Regenerating steps
 
-There are no run modes. A missing step is generated and a failing one is diagnosed, unless `changes` stops it. To regenerate steps, delete their files from `.intent`, and the next run generates them again.
+A missing step is generated and a failing one is diagnosed, unless `changes` stops it. To regenerate steps, delete their files from `.intent`, and the next run generates them again.
 
-Configuration lives only in `playwright.config.ts`, under `use.intent`. CI has no default of its own, because `changes` decides whether steps can change there.
+Configuration lives only in `playwright.config.ts`, under `use.intent`.
 
 ## Failures
 
