@@ -64,6 +64,12 @@ export function createTestScope(
 				"store: fileStore({ onChange: { local: keep(), ci: fail() } })",
 		);
 	}
+	if (options.agent && options.prompts) {
+		throw new IntentConfigError(
+			"use.intent.prompts only applies to the built-in agent, so it can't " +
+				"be combined with use.intent.agent.",
+		);
+	}
 	const mode = resolveMode(options.mode);
 
 	const configFile = testInfo.config.configFile;
@@ -74,7 +80,8 @@ export function createTestScope(
 	return {
 		mode,
 		agent:
-			options.agent ?? (options.model ? createAiSdkAgent(options.model) : null),
+			options.agent ??
+			(options.model ? createAiSdkAgent(options.model, options.prompts) : null),
 		store: options.store.open(intentRoot),
 		onChange: resolveChangeHandler(options.store.onChange),
 		limits: { ...DEFAULT_LIMITS, ...options.limits },

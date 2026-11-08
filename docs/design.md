@@ -53,6 +53,8 @@ The library owns the browser, cache and limits. An `IntentAgent` observes, runs 
 
 The built-in agent takes any AI SDK model, so `use.intent.model` can be a provider's model or a Vercel AI Gateway id like `"openai/gpt-6-luna"`. It explores with `run` and `look`, then ends with `finish` or `give_up`. Each generation attaches a transcript to the test. Observations list the page's test ids, because the ARIA snapshot doesn't show them.
 
+Everything the model reads is in `src/agent/prompts.ts`. The two prompts, `generate` and `diagnose`, say what good work looks like. They're exported as `defaultPrompts`, and `use.intent.prompts` can extend or replace them. The tools can't change, so how to use them correctly lives in the tool descriptions, where a custom prompt can't remove it. A prompt can't get around the limits the library enforces, but it can produce worse code.
+
 Each task includes the test file as it is on disk, with the line of the current `ai.do`, so the agent can see the hand-written code around a step. The file isn't filtered, so values written in the test reach the model. Secrets belong in environment variables.
 
 | Outcome           | Saved | Test                          |

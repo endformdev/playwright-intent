@@ -1,4 +1,5 @@
 import {
+	defaultPrompts,
 	defineConfig,
 	devices,
 	fail,
@@ -15,7 +16,9 @@ import { createScriptedModel, readModelScript } from "./scripted-model";
 
 const {
 	INTENT_E2E_CONFIG_MODE,
+	INTENT_E2E_DIAGNOSE_PROMPT,
 	INTENT_E2E_FAILURE_CONTEXT,
+	INTENT_E2E_GENERATE_PROMPT,
 	INTENT_E2E_NO_AGENT,
 	INTENT_E2E_NO_STORE,
 	INTENT_E2E_ON_CHANGE,
@@ -33,6 +36,23 @@ function storeProvider(): IntentStoreProvider {
 	if (!INTENT_E2E_REMOTE_DIR) return fileStore({ onChange });
 	const directory = INTENT_E2E_REMOTE_DIR;
 	return { onChange, open: () => createRemoteStore(directory) };
+}
+
+/** `{default}` stands for the built-in text, so flows can build on it. */
+function customPrompts() {
+	if (!INTENT_E2E_GENERATE_PROMPT && !INTENT_E2E_DIAGNOSE_PROMPT) {
+		return undefined;
+	}
+	return {
+		generate: INTENT_E2E_GENERATE_PROMPT?.replace(
+			"{default}",
+			defaultPrompts.generate,
+		),
+		diagnose: INTENT_E2E_DIAGNOSE_PROMPT?.replace(
+			"{default}",
+			defaultPrompts.diagnose,
+		),
+	};
 }
 
 export default defineConfig<IntentUseOptions>({
@@ -55,6 +75,7 @@ export default defineConfig<IntentUseOptions>({
 				: undefined,
 			agent:
 				INTENT_E2E_NO_AGENT || modelScript ? undefined : createScriptedAgent(),
+			prompts: customPrompts(),
 			context: () => INTENT_E2E_FAILURE_CONTEXT,
 			store: storeProvider(),
 		},

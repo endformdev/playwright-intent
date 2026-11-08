@@ -72,6 +72,7 @@ Everything lives under `use.intent` in `playwright.config.ts`.
 | `store`   | Required. Where steps live, and what happens when they change |
 | `model`   | The [AI SDK](https://ai-sdk.dev) model used to write steps    |
 | `mode`    | When the agent may run. Defaults to `missing`                 |
+| `prompts` | Changes what the built-in agent is told                       |
 | `agent`   | Replaces the built-in agent                                   |
 | `context` | Adds your own text to a failure diagnosis                     |
 | `limits`  | The agent's `maxTurns` and `timeoutMs`                        |
@@ -102,6 +103,27 @@ Pass one function to use it everywhere, or `{ local, ci }` to choose by whether 
 fileStore({ onChange: { local: keep(), ci: fail() } });
 fileStore({ onChange: keep() });
 ```
+
+## Prompts
+
+The built-in agent has two prompts: `generate` writes new steps, and `diagnose` decides what to do after a failure. You can [read them here](playwright-intent/src/agent/prompts.ts), or import them as `defaultPrompts`.
+
+Build on a prompt to teach the agent about your app, and you'll keep getting improvements to the default:
+
+```ts
+import { defaultPrompts } from "playwright-intent";
+
+// In use.intent
+prompts: {
+	generate: `${defaultPrompts.generate}
+
+Dropdowns in this app only open after their label is clicked.`,
+},
+```
+
+Or pass your own text to replace a prompt completely. The agent's tools stay the same and explain how to use them, so a prompt only needs to say what good work looks like.
+
+Changing a prompt doesn't change steps you've already saved. `PW_INTENT=all` regenerates them, so keep them in Git first. `prompts` can't be combined with `agent`.
 
 ## Project status
 

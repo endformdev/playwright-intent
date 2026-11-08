@@ -1,5 +1,6 @@
 import type { LanguageModel } from "ai";
 import type { FailureContextProvider, IntentAgent } from "./agent/agent";
+import type { IntentPrompts } from "./agent/prompts";
 import { IntentError } from "./errors";
 import type { IntentStoreProvider } from "./store/store";
 
@@ -29,6 +30,11 @@ export interface IntentOptions {
 	model?: LanguageModel;
 	/** Replaces the built-in agent, and takes priority over `model`. */
 	agent?: IntentAgent;
+	/**
+	 * Replaces the built-in agent's instructions. Build on `defaultPrompts` to
+	 * add to them. Can't be combined with `agent`.
+	 */
+	prompts?: Partial<IntentPrompts>;
 	/** Where steps are stored, and what happens when they change. */
 	store: IntentStoreProvider;
 	/** Adds your own text, like failure history, to a diagnosis. */

@@ -42,6 +42,10 @@ export interface RunOptions {
 	grep?: string;
 	/** Text for `use.intent.context` to return. */
 	failureContext?: string;
+	/** Sets `use.intent.prompts.generate`. `{default}` is the built-in text. */
+	generatePrompt?: string;
+	/** Sets `use.intent.prompts.diagnose`. `{default}` is the built-in text. */
+	diagnosePrompt?: string;
 	/** Sets the test timeout, to reach timeouts quickly. */
 	timeout?: number;
 }
@@ -158,7 +162,7 @@ export class Project {
 		await fs.rm(this.#path(".intent"), { recursive: true, force: true });
 	}
 
-	/** The prompt of each model call, as JSON. */
+	/** The prompt and tools of each model call, as JSON. */
 	async modelCalls(): Promise<string[]> {
 		const log = await fs
 			.readFile(this.#path(MODEL_CALLS_FILE), "utf8")
@@ -219,6 +223,12 @@ export class Project {
 			...(options.withoutAgent && { INTENT_E2E_NO_AGENT: "1" }),
 			...(options.failureContext && {
 				INTENT_E2E_FAILURE_CONTEXT: options.failureContext,
+			}),
+			...(options.generatePrompt && {
+				INTENT_E2E_GENERATE_PROMPT: options.generatePrompt,
+			}),
+			...(options.diagnosePrompt && {
+				INTENT_E2E_DIAGNOSE_PROMPT: options.diagnosePrompt,
 			}),
 			...(this.#remoteDirectory && {
 				INTENT_E2E_REMOTE_DIR: this.#remoteDirectory,
