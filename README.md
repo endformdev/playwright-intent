@@ -27,7 +27,7 @@ test("checkout", async ({ page, ai }) => {
 
 - **Intent:** the text you pass to `ai.do`. Use `{name}` for anything that varies, and pass the values as the second argument.
 - **Step:** the TypeScript generated for an intent, saved as a file you can read and review. Changing an intent generates a new step.
-- **Agent:** explores the live page and writes the step. It sees your test file, but not the values you pass to `ai.do`.
+- **Agent:** explores the live page and writes the step. It sees your test file and the page it's working on. Values you pass to `ai.do` aren't included in its instructions, but they can reach it through page content once they've been typed or displayed.
 - **Mode:** decides when the agent may run.
 - **Store:** where steps live, and what happens when they change.
 
