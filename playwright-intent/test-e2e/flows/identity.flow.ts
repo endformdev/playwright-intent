@@ -14,7 +14,7 @@ flow.describe("step identity", () => {
 	flow("a step's path mirrors where it's called from", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
 
-		await project.run({ mode: "missing" });
+		await project.run();
 
 		const [first] = await project.stepFiles();
 		expect(first).toBe(
@@ -33,7 +33,6 @@ flow.describe("step identity", () => {
 
 			const run = await project.run({
 				...IDENTITY_TESTS,
-				mode: "missing",
 				grep: `${title}$`,
 			});
 
@@ -44,7 +43,6 @@ flow.describe("step identity", () => {
 	flow("a placeholder without a value fails", async ({ project }) => {
 		const run = await project.run({
 			...IDENTITY_TESTS,
-			mode: "missing",
 			grep: "forgets a variable",
 		});
 
@@ -57,7 +55,6 @@ flow.describe("step identity", () => {
 	flow("a value without a placeholder fails", async ({ project }) => {
 		const run = await project.run({
 			...IDENTITY_TESTS,
-			mode: "missing",
 			grep: "passes an unused variable",
 		});
 
@@ -68,7 +65,7 @@ flow.describe("step identity", () => {
 
 	flow("a step file from another test fails loudly", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
-		await project.run({ mode: "missing" });
+		await project.run();
 
 		const key =
 			"tests/checkout.spec.ts/checkout - guest buys a shirt/go to checkout.ts";
@@ -78,7 +75,7 @@ flow.describe("step identity", () => {
 			source.replace("checkout > guest buys a shirt", "some other test"),
 		);
 
-		const run = await project.run({ mode: "none" });
+		const run = await project.run();
 
 		expect(run.test(CHECKOUT_TEST).errors[0]).toContain("doesn't belong to");
 	});
@@ -101,11 +98,11 @@ flow.describe("step identity", () => {
 			`await ai.do("${INTENT.add}");`,
 			`await ai.do("${first}");`,
 		);
-		await project.run({ mode: "missing" });
+		await project.run();
 		const filesBefore = await project.stepFiles();
 
 		await project.replaceInFile("tests/checkout.spec.ts", first, second);
-		const run = await project.run({ mode: "missing" });
+		const run = await project.run();
 
 		expect(run.exitCode).toBe(0);
 		expect((await project.agentCalls()).at(-1)?.intent).toBe(second);

@@ -14,12 +14,11 @@ import {
 	IntentNoAgentError,
 	IntentRewindError,
 	IntentStepConflictError,
-	IntentStepMissingError,
 } from "../errors";
 import { readTestFile } from "../fixture/test-file";
 import type { TestScope } from "../fixture/test-scope";
 import { materializeStep } from "../store/file-store";
-import { diagnosesFailures, handleStepFailure } from "./handle-failure";
+import { handleStepFailure } from "./handle-failure";
 import {
 	assertVariablesMatch,
 	placeholderNames,
@@ -27,7 +26,7 @@ import {
 } from "./intent-text";
 import { saveStep } from "./save-step";
 import { parseStepCode, parseStepHeader } from "./step-file";
-import { stepKey, testFolder } from "./step-path";
+import { stepKey } from "./step-path";
 
 /** What a step file receives. Steps can't import anything else at runtime. */
 export interface StepContext {
@@ -68,7 +67,6 @@ export async function runStep(
 	};
 
 	try {
-		await clearStepsForAllMode(scope);
 		const source = await readStep(scope, key, intent);
 		const code =
 			source === null
@@ -80,19 +78,6 @@ export async function runStep(
 		if (error instanceof IntentError) scope.diagnosed = true;
 		throw error;
 	}
-}
-
-/**
- * Clearing once, on the first attempt, is what lets a retry tell the steps
- * this run has already generated from the old ones it hasn't reached yet.
- */
-async function clearStepsForAllMode(scope: TestScope): Promise<void> {
-	if (scope.mode !== "all" || scope.testInfo.retry > 0 || scope.cleared) return;
-	await scope.changePolicy.check({ type: "clear", test: scope.testTitle });
-	scope.cleared = true;
-
-	const keys = await scope.store.list(testFolder(scope));
-	await Promise.all(keys.map((key) => scope.store.delete(key)));
 }
 
 function claimStep(scope: TestScope, key: string, intent: string): void {
@@ -141,7 +126,7 @@ async function replayStep(
 	const file = scope.localPath(key);
 	await materializeStep(file, source);
 
-	if (!diagnosesFailures(scope)) {
+	if (!scope.agent) {
 		const step = await importStep(file);
 		await step(context);
 		return code;
@@ -183,23 +168,18 @@ async function generateStep(
 	intent: string,
 	line: number | undefined,
 ): Promise<string> {
-	if (scope.mode === "none") {
-		throw new IntentStepMissingError(
-			`No step at .intent/${key}, and mode is "none". ` +
-				"Run with PW_INTENT=missing to generate it.",
-		);
-	}
+	await scope.changePolicy.check({
+		type: "generate",
+		test: scope.testTitle,
+		intent,
+		key,
+	});
 	if (!scope.agent) {
 		throw new IntentNoAgentError(
 			`Generating "${intent}" needs use.intent.model in playwright.config.ts.`,
 		);
 	}
 	const agent = scope.agent;
-	await scope.changePolicy.check({
-		type: "generate",
-		test: scope.testTitle,
-		intent,
-	});
 	const testFile = await readTestFile(scope, line);
 
 	scope.testInfo.setTimeout(scope.testInfo.timeout + scope.limits.timeoutMs);

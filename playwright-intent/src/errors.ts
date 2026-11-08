@@ -12,9 +12,6 @@ export class IntentConfigError extends IntentError {}
 /** The `changes` policy stopped a step from changing. */
 export class IntentChangeRejectedError extends IntentError {}
 
-/** A step has no cached code, and the current mode may not generate it. */
-export class IntentStepMissingError extends IntentError {}
-
 /** Two `ai.do` calls in one test sanitize to the same step file. */
 export class IntentDuplicateStepError extends IntentError {}
 
@@ -24,7 +21,7 @@ export class IntentStepConflictError extends IntentError {}
 /** Placeholders and variables passed to `ai.do` don't match. */
 export class IntentVariablesError extends IntentError {}
 
-/** The mode needs an agent, but `use.intent` has no `model` or `agent`. */
+/** A step needs generating, but `use.intent` has no `model` or `agent`. */
 export class IntentNoAgentError extends IntentError {}
 
 /** The agent finished with `failed`. Nothing was saved. */

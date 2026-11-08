@@ -1,5 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
-import type { IntentUseOptions } from "playwright-intent";
+import {
+	allow,
+	fileStore,
+	type IntentUseOptions,
+	refuse,
+} from "playwright-intent";
 
 export default defineConfig<IntentUseOptions>({
 	testDir: "./tests-intent",
@@ -14,7 +19,9 @@ export default defineConfig<IntentUseOptions>({
 		trace: "on",
 		intent: {
 			// Steps come from .intent on Endform, so its runners need no model key.
-			mode: process.env.ENDFORM === "true" ? "none" : undefined,
+			store: fileStore({
+				changes: process.env.ENDFORM === "true" ? refuse() : allow(),
+			}),
 			model: process.env.INTENT_MODEL ?? "openai/gpt-6-luna",
 		},
 	},

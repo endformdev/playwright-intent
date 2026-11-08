@@ -78,7 +78,7 @@ flow.describe("an agent that never answers", () => {
 				...script,
 				turns: [...solveEveryStep, ...script.turns],
 			});
-			await project.run({ mode: "missing" });
+			await project.run();
 			const before = await stepContents(project);
 			await project.replaceInFile(
 				"tests/checkout.spec.ts",
@@ -86,7 +86,7 @@ flow.describe("an agent that never answers", () => {
 				'await ai.do("open the checkout");',
 			);
 
-			const run = await project.run({ mode: "changed" });
+			const run = await project.run();
 
 			expect(run.exitCode).toBe(1);
 			expect(run.test(CHECKOUT_TEST).errors[0]).toContain(says);
@@ -104,10 +104,10 @@ flow.describe("an agent that never answers", () => {
 						...script,
 						turns: [...solveEveryStep, ...script.turns],
 					});
-					await project.run({ mode: "missing" });
+					await project.run();
 					const before = await stepContents(project);
 
-					const run = await project.run({ mode: "changed", shop });
+					const run = await project.run({ shop });
 
 					const test = run.test(CHECKOUT_TEST);
 					expect(run.exitCode).toBe(1);

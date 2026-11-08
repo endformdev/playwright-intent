@@ -21,8 +21,5 @@ export function createRemoteStore(directory: string): IntentStore {
 			await delay();
 			await fs.rm(resolve(key), { force: true });
 		},
-		async list() {
-			return [];
-		},
 	};
 }

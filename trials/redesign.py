@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runs repair modes against structural UI changes, from a clean baseline.
+"""Runs the agent against structural UI changes, from a clean baseline.
 
 Usage: redesign.py [results.jsonl]
 """
@@ -66,12 +66,11 @@ def role_dropdown():
 NAME, PLAN, INVITE = m.NAME, m.PLAN, m.INVITE
 ALL = "should"
 SCENARIOS = [
-    ("sign out moved to the header", INVITE, [signout_in_header], "changed", 2),
-    ("settings moved to the user menu", NAME, [settings_in_user_menu], "changed", 2),
-    ("checkout gets a second stage", PLAN, [two_stage_checkout], "changed", 2),
-    ("role radio becomes a dropdown", INVITE, [role_dropdown], "changed", 2),
-    ("all four, changed mode", ALL, [signout_in_header, settings_in_user_menu, two_stage_checkout, role_dropdown], "changed", 3),
-    ("all four, all mode", ALL, [signout_in_header, settings_in_user_menu, two_stage_checkout, role_dropdown], "all", 3),
+    ("sign out moved to the header", INVITE, [signout_in_header], 2),
+    ("settings moved to the user menu", NAME, [settings_in_user_menu], 2),
+    ("checkout gets a second stage", PLAN, [two_stage_checkout], 2),
+    ("role radio becomes a dropdown", INVITE, [role_dropdown], 2),
+    ("all four", ALL, [signout_in_header, settings_in_user_menu, two_stage_checkout, role_dropdown], 3),
 ]
 
 FILES = [SHELL, NAV, CHECKOUT, DASH]
@@ -82,9 +81,7 @@ def main():
     REPEAT = 2
     out.write_text("")
     for number in range(REPEAT):
-        for name, grep, edits, mode, retries in SCENARIOS:
-            if number and "all four" in name and "changed" not in name:
-                continue
+        for name, grep, edits, retries in SCENARIOS:
             shutil.rmtree(ROOT / ".intent", ignore_errors=True)
             shutil.copytree(BASE, ROOT / ".intent")
             originals = {p: p.read_text() for p in FILES}
@@ -93,10 +90,10 @@ def main():
                 for edit in edits:
                     edit()
                 time.sleep(4)
-                code, report = m.run(mode, grep, retries=retries)
+                code, report = m.run(grep, retries=retries)
                 attempts, notes, decisions, turns = m.summary(report)
                 changed = m.diff()
-                verify = [m.run("none", grep)[0] for _ in range(2)]
+                verify = [m.run(grep, replay_only=True)[0] for _ in range(2)]
                 steps = {str(p.relative_to(ROOT / ".intent")): p.read_text() for p in (ROOT / ".intent").rglob("*.ts") if p.is_file() and str(p.relative_to(ROOT / ".intent")) in changed}
             finally:
                 for path, text in originals.items():

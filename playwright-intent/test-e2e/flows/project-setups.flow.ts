@@ -8,8 +8,8 @@ flow.describe("project setups", () => {
 			const project = await createProject({ moduleType: "cjs" });
 			await project.scriptAgent(checkoutScript());
 
-			const generated = await project.run({ mode: "missing" });
-			const replayed = await project.run({ mode: "none" });
+			const generated = await project.run();
+			const replayed = await project.run();
 
 			expect(generated.exitCode).toBe(0);
 			expect(replayed.exitCode).toBe(0);
@@ -23,11 +23,11 @@ flow.describe("project setups", () => {
 		async ({ createProject }) => {
 			const project = await createProject({ remoteStore: true });
 			await project.scriptAgent(checkoutScript());
-			await project.run({ mode: "missing" });
+			await project.run();
 			await project.clearLocalSteps();
 			expect(await project.stepFiles()).toEqual([]);
 
-			const replay = await project.run({ mode: "none" });
+			const replay = await project.run();
 
 			expect(replay.exitCode).toBe(0);
 			expect(replay.test(CHECKOUT_TEST).attempts).toEqual(["passed"]);

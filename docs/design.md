@@ -38,16 +38,16 @@ Code always runs from disk, because Playwright reads the file for snippets and t
 
 `use.intent.store` is required, and a store can't be set up without `changes`. A generated step is only useful if something keeps it, and that depends on where the run happens, so nobody should get it by default.
 
-`changes` is one policy, or `{ local, ci }` chosen by the `CI` environment variable. It's a gate: it's checked in the worker just before the agent starts, whether generating, diagnosing, or clearing steps for `all`. During a diagnosis, the agent may then change nothing at all. Throwing stops the change, so nothing is spent on the model.
+`changes` is one policy, or `{ local, ci }` chosen by the `CI` environment variable. It's a gate: it's checked in the worker just before the agent starts, whether generating or diagnosing. During a diagnosis, the agent may then change nothing at all. Throwing stops the change, so nothing is spent on the model.
 
-- `allow()` lets the change happen, and it stays on disk to review and commit.
-- `refuse()` throws `IntentChangeRejectedError`. During a diagnosis the test keeps its own error, and the rejection is reported.
+- `allow()` lets the agent generate missing steps and diagnose failures, and its changes stay on disk to review and commit.
+- `refuse()` never runs the agent. A missing step throws `IntentChangeRejectedError`, and a failing step is an ordinary test failure.
 
-Built-in policies are named values rather than plain functions, so the library knows which one is active and can tell a reporter. A custom function can still decide permission, but it can't deliver anything.
+Built-in policies are named values rather than plain functions, so the library knows which one is active and can tell a reporter. A custom function can still decide permission, but it can't deliver anything. One that throws for `diagnose` generates steps and leaves failures alone: the test keeps its own error, and the rejection is reported.
 
 A `{ local, ci }` pair keeps CI from being forgotten. A job that needs something else, like a nightly self-heal, can use plain JS in the config.
 
-Playwright's types make every `use` key optional, so the fixture also throws `IntentConfigError` when `store` is missing, in every mode.
+Playwright's types make every `use` key optional, so the fixture also throws `IntentConfigError` when `store` is missing.
 
 ## Generating steps
 
@@ -69,22 +69,15 @@ Each task includes the test file as it is on disk, with the line of the current 
 
 The first normal replay proves a generated step works.
 
-## Modes
+## Regenerating steps
 
-| Mode      | Cache miss | Cached step fails |
-| --------- | ---------- | ----------------- |
-| `none`    | Fail       | Fail              |
-| `missing` | Generate   | Fail              |
-| `changed` | Generate   | Agent diagnoses   |
-| `all`     | Generate   | Agent diagnoses   |
+A missing step is generated and a failing one is diagnosed, unless `changes` stops it. To regenerate steps, delete their files from `.intent`, and the next run generates them again.
 
-`all` clears a test's steps when its first attempt starts, so everything is a miss. A retry replays what the run has already generated, and generates the rest. If an attempt fails early, the steps it didn't reach stay cleared until something generates them, so `all` needs Git or another way back.
-
-Configuration lives only in `playwright.config.ts`, under `use.intent`. `PW_INTENT` overrides the mode for one run. With neither set, the mode is `missing`. CI has no default of its own, because `changes` decides whether steps can change there.
+Configuration lives only in `playwright.config.ts`, under `use.intent`.
 
 ## Failures
 
-Retries are the only rewind, because a fixture can't restart a test. In `changed` mode the agent diagnoses each failure on the live page and returns one decision:
+Retries are the only rewind, because a fixture can't restart a test. Unless `changes` stops it, the agent diagnoses each failure on the live page and returns one decision:
 
 | Decision          | Cache               | Test                           |
 | ----------------- | ------------------- | ------------------------------ |
@@ -105,7 +98,7 @@ The library enforces these limits, whatever the agent asks for:
 - `regenerate` can only touch steps that ran in the current test.
 - Failures outside a step can't `repair`. They're diagnosed in the fixture's teardown, along with test timeouts inside a step, so these can only prepare the next attempt.
 
-In `changed` mode, a replayed step gets a 15 second action timeout if `use.actionTimeout` isn't set, so a stale locator doesn't use up the whole test timeout.
+When failures can be diagnosed, a replayed step gets a 15 second action timeout if `use.actionTimeout` isn't set, so a stale locator doesn't use up the whole test timeout.
 
 A repair that changes a step's assertions is listed in the run output, but isn't blocked.
 
@@ -124,8 +117,8 @@ See [open-questions.md](open-questions.md) for postponed questions, and [step-qu
 - Handling a run's changes as a batch, like a pull request comment. See [Run-level change handling](#run-level-change-handling).
 - Sharing steps between tests, and separate caches per browser project.
 - Pruning orphaned files, and letting steps import helpers.
-- A CLI, a summary reporter, `-u` integration, and type-checking step files.
-- `ai.expect` and diagnosis in CI.
+- A CLI, a summary reporter, and type-checking step files.
+- `ai.expect`.
 - Sending screenshots to OpenAI-compatible providers. By default they stringify tool results, so `look` would send base64 text unless `supportsMultiPartToolContent` is set.
 - Parallel tool calls on providers other than OpenAI, where a model could call `run` and `finish` in the same turn.
 - Replacing a step mid-process. Node caches each import, so a test that repeats in the same worker after a repair, with `--repeat-each`, replays the old code until the next process.

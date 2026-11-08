@@ -21,8 +21,8 @@ flow.describe("the built-in agent", () => {
 		async ({ project }) => {
 			await project.scriptModel({ turns: solveEveryStep });
 
-			const generated = await project.run({ mode: "missing" });
-			const replayed = await project.run({ mode: "none" });
+			const generated = await project.run();
+			const replayed = await project.run();
 
 			expect(generated.exitCode).toBe(0);
 			expect(replayed.exitCode).toBe(0);
@@ -38,7 +38,7 @@ flow.describe("the built-in agent", () => {
 		async ({ project }) => {
 			await project.scriptModel({ turns: solveEveryStep });
 
-			await project.run({ mode: "missing" });
+			await project.run();
 
 			const [firstCall] = await project.modelCalls();
 			expect(firstCall).toContain(`>> \\t\\tawait ai.do(\\"${INTENT.add}\\");`);
@@ -54,7 +54,7 @@ flow.describe("the built-in agent", () => {
 			'<a data-testid="to-checkout" href="/checkout">',
 		);
 
-		await project.run({ mode: "missing" });
+		await project.run();
 
 		const [, afterFirstRun] = await project.modelCalls();
 		expect(afterFirstRun).toContain("Test ids on this page");
@@ -64,7 +64,7 @@ flow.describe("the built-in agent", () => {
 	flow("attaches a transcript to the test", async ({ project }) => {
 		await project.scriptModel({ turns: solveEveryStep });
 
-		const run = await project.run({ mode: "missing" });
+		const run = await project.run();
 
 		expect(run.test(CHECKOUT_TEST).attachments).toContain(
 			`agent: ${INTENT.add}`,
@@ -78,7 +78,7 @@ flow.describe("the built-in agent", () => {
 				turns: [{ tool: "fail", input: { reason: "There's no shirt." } }],
 			});
 
-			const run = await project.run({ mode: "missing" });
+			const run = await project.run();
 
 			expect(run.exitCode).toBe(1);
 			expect(run.test(CHECKOUT_TEST).errors[0]).toContain("There's no shirt.");
@@ -93,7 +93,7 @@ flow.describe("the built-in agent", () => {
 		const look: ModelTurn = { tool: "look", input: {} };
 		await project.scriptModel({ turns: [look, look], limits: { maxTurns: 2 } });
 
-		const run = await project.run({ mode: "missing" });
+		const run = await project.run();
 
 		expect(run.exitCode).toBe(1);
 		expect(run.test(CHECKOUT_TEST).errors[0]).toContain("within 2 turns");
@@ -105,7 +105,6 @@ flow.describe("the built-in agent", () => {
 		await project.scriptModel({ turns: solveEveryStep });
 
 		await project.run({
-			mode: "missing",
 			generatePrompt: "{default}\n\nThis shop sells shirts.",
 		});
 
@@ -119,10 +118,7 @@ flow.describe("the built-in agent", () => {
 		async ({ project }) => {
 			await project.scriptModel({ turns: solveEveryStep });
 
-			const run = await project.run({
-				mode: "missing",
-				generatePrompt: "Only these words.",
-			});
+			const run = await project.run({ generatePrompt: "Only these words." });
 
 			const [firstCall] = await project.modelCalls();
 			expect(run.exitCode).toBe(0);
@@ -140,10 +136,9 @@ flow.describe("the built-in agent", () => {
 				{ tool: "fail", input: { reason: "Checked." } },
 			],
 		});
-		await project.run({ mode: "missing" });
+		await project.run();
 
 		await project.run({
-			mode: "changed",
 			shop: "renamed-add-link",
 			diagnosePrompt: "{default}\n\nCheck the cart first.",
 		});
@@ -161,9 +156,9 @@ flow.describe("the built-in agent", () => {
 				{ tool: "fail", input: { reason: "Payment is broken." } },
 			],
 		});
-		await project.run({ mode: "missing" });
+		await project.run();
 
-		await project.run({ mode: "changed", shop: "broken-payment" });
+		await project.run({ shop: "broken-payment" });
 
 		const diagnosis = (await project.modelCalls()).at(-1);
 		expect(diagnosis).toContain("A line of the hand-written test failed");

@@ -28,8 +28,7 @@ test("checkout", async ({ page, ai }) => {
 - **Intent:** the text you pass to `ai.do`. Use `{name}` for anything that varies, and pass the values as the second argument.
 - **Step:** the TypeScript generated for an intent, saved as a file you can read and review. Changing an intent generates a new step.
 - **Agent:** explores the live page and writes the step. It sees your test file and the page it's working on. Values you pass to `ai.do` aren't included in its instructions, but they can reach it through page content once they've been typed or displayed.
-- **Mode:** decides when the agent may run.
-- **Store:** where steps live, and what happens when they change.
+- **Store:** where steps live, and whether the agent may change them.
 
 ## Quick start
 
@@ -71,7 +70,6 @@ Everything lives under `use.intent` in `playwright.config.ts`.
 | --------- | ------------------------------------------------------------- |
 | `store`   | Required. Where steps live, and what happens when they change |
 | `model`   | The [AI SDK](https://ai-sdk.dev) model used to write steps    |
-| `mode`    | When the agent may run. Defaults to `missing`                 |
 | `prompts` | Changes what the built-in agent is told                       |
 | `context` | Adds your own text to a failure diagnosis                     |
 | `limits`  | The agent's `maxTurns` and `timeoutMs`                        |
@@ -110,25 +108,14 @@ Providers that wrap a CLI, like Codex CLI or Claude Code, run their own tools in
 
 So far, generated steps have only been tried with `openai/gpt-6-luna`.
 
-## Modes
-
-The `PW_INTENT` environment variable overrides `mode` for one run.
-
-| Mode      | Missing step | Saved step fails |
-| --------- | ------------ | ---------------- |
-| `none`    | Fails        | Fails            |
-| `missing` | Generates    | Fails            |
-| `changed` | Generates    | Agent diagnoses  |
-| `all`     | Regenerates  | Agent diagnoses  |
-
 ## Stores and changes
 
 `fileStore` keeps steps in `.intent` beside your Playwright config.
 
 A store always needs `changes`, because a change that nobody keeps is lost. A step generated on a CI machine disappears with it, unless you've decided what should happen. `changes` is a policy checked before the agent starts:
 
-- `allow()` lets the change happen, and leaves it on disk for you to review and commit.
-- `refuse()` fails the test instead, without calling the model.
+- `allow()` lets the agent write missing steps and diagnose failing ones, and leaves its changes on disk for you to review and commit.
+- `refuse()` never calls the model. A missing step fails the test, and a failing step fails like any other test.
 
 Pass one policy to use it everywhere, or `{ local, ci }` to choose by whether the `CI` environment variable is set:
 
@@ -137,7 +124,17 @@ fileStore({ changes: { local: allow(), ci: refuse() } });
 fileStore({ changes: allow() });
 ```
 
-A policy can also be your own function, which throws to stop the change.
+A policy can also be your own function, which throws to stop the change. This one writes missing steps, but leaves failures alone:
+
+```ts
+fileStore({
+	changes: (change) => {
+		if (change.type === "diagnose") throw new Error("Failures stay failures.");
+	},
+});
+```
+
+To regenerate steps, delete their files from `.intent`, and the next run writes them again.
 
 ## Prompts
 
@@ -158,7 +155,7 @@ Dropdowns in this app only open after their label is clicked.`,
 
 Or pass your own text to replace a prompt completely. The agent's tools stay the same and explain how to use them, so a prompt only needs to say what good work looks like.
 
-Changing a prompt doesn't change steps you've already saved. `PW_INTENT=all` regenerates them, so keep them in Git first.
+Changing a prompt doesn't change steps you've already saved. Delete them from `.intent` to regenerate them, and keep them in Git first.
 
 ## Project status
 

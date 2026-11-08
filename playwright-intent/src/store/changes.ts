@@ -5,13 +5,14 @@ export interface StepChange {
 	/**
 	 * - `generate`: a step needs new code.
 	 * - `diagnose`: the agent may repair or regenerate steps after a failure.
-	 * - `clear`: `all` mode is removing a test's steps.
 	 */
-	type: "generate" | "diagnose" | "clear";
+	type: "generate" | "diagnose";
 	/** The test's describe and test titles, joined with ` > `. */
 	test: string;
-	/** Missing for `clear`, and for failures outside a step. */
+	/** Missing for failures outside a step. */
 	intent?: string;
+	/** The step's path inside `.intent`. Missing for failures outside a step. */
+	key?: string;
 }
 
 /**
@@ -46,8 +47,9 @@ export function refuse(): NamedChangePolicy {
 		name: "refuse",
 		check: (change) => {
 			const subject = change.intent ?? change.test;
+			const file = change.key ? ` at .intent/${change.key}` : "";
 			throw new IntentChangeRejectedError(
-				`The changes policy refused a step change (${change.type}: "${subject}"). ` +
+				`The changes policy refused a step change (${change.type}: "${subject}")${file}. ` +
 					"Run this where changes can be kept, then commit them.",
 			);
 		},
