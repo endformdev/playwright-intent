@@ -255,14 +255,14 @@ flow.describe("failures in changed mode", () => {
 	});
 
 	flow(
-		"rerun leaves the cache alone and fails the attempt",
+		"fail keeps the step's own error and leaves the cache alone",
 		async ({ project }) => {
 			await generateCheckout(project);
 			const stepsBefore = await project.stepFiles();
 			await project.scriptAgent({
 				diagnose: {
 					[INTENT.add]: [
-						{ decision: { action: "rerun", reason: "Looks like a one-off." } },
+						{ decision: { action: "fail", reason: "Looks like a one-off." } },
 					],
 				},
 			});

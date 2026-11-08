@@ -213,10 +213,6 @@ async function applyDecision(
 			};
 		}
 
-		case "rerun":
-			report(scope, `Rerunning after ${label} failed${because}`);
-			return { outcome: "failed" };
-
 		case "fail":
 			report(scope, `Left the steps alone after ${label} failed${because}`);
 			return { outcome: "failed" };

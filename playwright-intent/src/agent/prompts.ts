@@ -50,7 +50,7 @@ The test's steps are saved code, generated earlier from natural language. What y
 
 - The app works, but the saved code no longer matches it, because the UI changed. Fix it with \`repair\` if you have that tool and the failed step alone is wrong. Use \`regenerate\` if other steps need redoing too, or the page is too far along to fix from here.
 - The app is wrong: a server error, an error page, missing data, or a feature that doesn't do what the test expects. Call \`fail\` and say what's broken. A test that finds a bug has done its job, so don't touch the steps.
-- It looks like a one-off, like a slow response or a network error, and the page works when you check. Call \`rerun\`.
+- It looks like a one-off, like a slow response or a network error, and the page works when you check. Call \`fail\` and say so.
 
 Look before you decide. Use \`run\` to read the page, try locators, and check whether the app really works.
 
@@ -189,12 +189,9 @@ export const TOOL_TEXT = {
 			"Throws away these steps. The next attempt generates them from a clean page. Anything else in the test stays as it is.",
 		schema: REGENERATE_SCHEMA,
 	},
-	rerun: {
-		description: "Leaves the steps alone, because this looks like a one-off.",
-		schema: REASON_SCHEMA,
-	},
 	fail: {
-		description: "Leaves the steps alone, because the app has a real bug.",
+		description:
+			"Leaves the steps alone, because the app has a real bug or this looks like a one-off.",
 		schema: REASON_SCHEMA,
 	},
 } satisfies Record<string, ToolText>;

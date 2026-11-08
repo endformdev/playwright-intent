@@ -89,7 +89,6 @@ Retries are the only rewind, because a fixture can't restart a test. In `changed
 | `repair`, `ready` | Replaces the step   | Continues                      |
 | `repair`, `dirty` | Replaces the step   | Fails, and a retry replays it  |
 | `regenerate`      | Deletes named steps | Fails, and a retry redoes them |
-| `rerun`           | No change           | Fails                          |
 | `fail`            | No change           | Fails with the diagnosis       |
 
 `use.intent.context` adds text to the diagnosis, like Endform's failure history.
