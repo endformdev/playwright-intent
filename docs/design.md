@@ -117,8 +117,8 @@ See [open-questions.md](open-questions.md) for postponed questions, and [step-qu
 - Handling a run's changes as a batch, like a pull request comment. See [Run-level change handling](#run-level-change-handling).
 - Sharing steps between tests, and separate caches per browser project.
 - Pruning orphaned files, and letting steps import helpers.
-- A CLI, a summary reporter, `-u` integration, and type-checking step files.
-- `ai.expect` and diagnosis in CI.
+- A CLI, a summary reporter, and type-checking step files.
+- `ai.expect`.
 - Sending screenshots to OpenAI-compatible providers. By default they stringify tool results, so `look` would send base64 text unless `supportsMultiPartToolContent` is set.
 - Parallel tool calls on providers other than OpenAI, where a model could call `run` and `finish` in the same turn.
 - Replacing a step mid-process. Node caches each import, so a test that repeats in the same worker after a repair, with `--repeat-each`, replays the old code until the next process.

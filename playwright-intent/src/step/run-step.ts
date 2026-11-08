@@ -18,7 +18,7 @@ import {
 import { readTestFile } from "../fixture/test-file";
 import type { TestScope } from "../fixture/test-scope";
 import { materializeStep } from "../store/file-store";
-import { diagnosesFailures, handleStepFailure } from "./handle-failure";
+import { handleStepFailure } from "./handle-failure";
 import {
 	assertVariablesMatch,
 	placeholderNames,
@@ -126,7 +126,7 @@ async function replayStep(
 	const file = scope.localPath(key);
 	await materializeStep(file, source);
 
-	if (!diagnosesFailures(scope)) {
+	if (!scope.agent) {
 		const step = await importStep(file);
 		await step(context);
 		return code;
@@ -172,6 +172,7 @@ async function generateStep(
 		type: "generate",
 		test: scope.testTitle,
 		intent,
+		key,
 	});
 	if (!scope.agent) {
 		throw new IntentNoAgentError(

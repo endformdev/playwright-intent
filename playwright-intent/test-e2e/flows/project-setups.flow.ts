@@ -9,7 +9,7 @@ flow.describe("project setups", () => {
 			await project.scriptAgent(checkoutScript());
 
 			const generated = await project.run();
-			const replayed = await project.run({ ci: true });
+			const replayed = await project.run();
 
 			expect(generated.exitCode).toBe(0);
 			expect(replayed.exitCode).toBe(0);
@@ -27,7 +27,7 @@ flow.describe("project setups", () => {
 			await project.clearLocalSteps();
 			expect(await project.stepFiles()).toEqual([]);
 
-			const replay = await project.run({ ci: true });
+			const replay = await project.run();
 
 			expect(replay.exitCode).toBe(0);
 			expect(replay.test(CHECKOUT_TEST).attempts).toEqual(["passed"]);

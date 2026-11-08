@@ -16,6 +16,7 @@ import type { IntentStore } from "../store/store";
 
 /** Everything the steps of one test attempt share. */
 export interface TestScope {
+	/** Null without a model, and under `refuse()`, where no step can change. */
 	agent: IntentAgent | null;
 	store: IntentStore;
 	changePolicy: NamedChangePolicy;
@@ -63,6 +64,7 @@ export function createTestScope(
 				"be combined with use.intent.agent.",
 		);
 	}
+	const changePolicy = resolveChangePolicy(options.store.changes);
 	const configFile = testInfo.config.configFile;
 	const root = configFile ? path.dirname(configFile) : testInfo.config.rootDir;
 	const intentRoot = path.join(root, INTENT_DIRECTORY);
@@ -70,10 +72,14 @@ export function createTestScope(
 
 	return {
 		agent:
-			options.agent ??
-			(options.model ? createAiSdkAgent(options.model, options.prompts) : null),
+			changePolicy.name === "refuse"
+				? null
+				: (options.agent ??
+					(options.model
+						? createAiSdkAgent(options.model, options.prompts)
+						: null)),
 		store: options.store.open(intentRoot),
-		changePolicy: resolveChangePolicy(options.store.changes),
+		changePolicy,
 		limits: { ...DEFAULT_LIMITS, ...options.limits },
 		session,
 		testInfo,

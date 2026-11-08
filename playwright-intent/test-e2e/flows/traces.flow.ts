@@ -10,7 +10,7 @@ flow.describe("traces and errors", () => {
 		const source = await project.readStep(STEP_FILE);
 		const clickLine = lineContaining(source, "Add blue shirt");
 
-		const replay = await project.run({ ci: true });
+		const replay = await project.run();
 
 		const { actions, sources } = replay.test(CHECKOUT_TEST).trace();
 		expect(actions).toContainEqual(
@@ -40,7 +40,7 @@ flow.describe("traces and errors", () => {
 		await project.scriptAgent(checkoutScript());
 		await project.run();
 
-		const replay = await project.run({ ci: true });
+		const replay = await project.run();
 
 		const { actions } = replay.test(CHECKOUT_TEST).trace();
 		expect(actions).toContainEqual(

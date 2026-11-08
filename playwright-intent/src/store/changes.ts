@@ -11,6 +11,8 @@ export interface StepChange {
 	test: string;
 	/** Missing for failures outside a step. */
 	intent?: string;
+	/** The step's path inside `.intent`. Missing for failures outside a step. */
+	key?: string;
 }
 
 /**
@@ -45,8 +47,9 @@ export function refuse(): NamedChangePolicy {
 		name: "refuse",
 		check: (change) => {
 			const subject = change.intent ?? change.test;
+			const file = change.key ? ` at .intent/${change.key}` : "";
 			throw new IntentChangeRejectedError(
-				`The changes policy refused a step change (${change.type}: "${subject}"). ` +
+				`The changes policy refused a step change (${change.type}: "${subject}")${file}. ` +
 					"Run this where changes can be kept, then commit them.",
 			);
 		},

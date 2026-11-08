@@ -34,11 +34,6 @@ type Result =
 	| { outcome: "rewind"; message: string }
 	| { outcome: "failed" };
 
-/** With `refuse()` no step can change, so a failure is just a failure. */
-export function diagnosesFailures(scope: TestScope): boolean {
-	return !!scope.agent && scope.changePolicy.name !== "refuse";
-}
-
 /**
  * Runs on the live page when a replayed step throws.
  * Returns the code to record if the test can carry on from here.
@@ -77,8 +72,7 @@ export async function handleTestFailure(
 	const failed = status === "failed" || status === "timedOut";
 	const hasSteps = scope.finishedSteps.length > 0 || step !== null;
 
-	if (!diagnosesFailures(scope)) return;
-	if (!failed || !hasSteps || scope.diagnosed) return;
+	if (!scope.agent || !failed || !hasSteps || scope.diagnosed) return;
 
 	const result = await diagnoseFailure(scope, {
 		step,
@@ -106,17 +100,23 @@ async function diagnoseFailure(
 
 	const { step, context, error, pageUnchanged } = failure;
 	const canContinue = scope.testInfo.status === "passed";
+	const intent = step?.intent ?? "";
+
+	try {
+		await scope.changePolicy.check({
+			type: "diagnose",
+			test: scope.testTitle,
+			...(step && { intent, key: step.key }),
+		});
+	} catch (cause) {
+		report(scope, `Skipped the diagnosis: ${errorMessage(cause)}`);
+		return { outcome: "failed" };
+	}
+
 	scope.testInfo.setTimeout(scope.testInfo.timeout + scope.limits.timeoutMs);
 
 	let decision: DiagnoseOutcome;
 	try {
-		const intent = step?.intent ?? "";
-		await scope.changePolicy.check({
-			type: "diagnose",
-			test: scope.testTitle,
-			...(step && { intent }),
-		});
-
 		decision = await test.step(
 			"agent: diagnose",
 			async () =>

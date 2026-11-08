@@ -22,7 +22,7 @@ flow.describe("the built-in agent", () => {
 			await project.scriptModel({ turns: solveEveryStep });
 
 			const generated = await project.run();
-			const replayed = await project.run({ ci: true });
+			const replayed = await project.run();
 
 			expect(generated.exitCode).toBe(0);
 			expect(replayed.exitCode).toBe(0);
@@ -118,9 +118,7 @@ flow.describe("the built-in agent", () => {
 		async ({ project }) => {
 			await project.scriptModel({ turns: solveEveryStep });
 
-			const run = await project.run({
-				generatePrompt: "Only these words.",
-			});
+			const run = await project.run({ generatePrompt: "Only these words." });
 
 			const [firstCall] = await project.modelCalls();
 			expect(run.exitCode).toBe(0);

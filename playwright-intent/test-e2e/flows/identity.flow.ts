@@ -75,7 +75,7 @@ flow.describe("step identity", () => {
 			source.replace("checkout > guest buys a shirt", "some other test"),
 		);
 
-		const run = await project.run({ ci: true });
+		const run = await project.run();
 
 		expect(run.test(CHECKOUT_TEST).errors[0]).toContain("doesn't belong to");
 	});

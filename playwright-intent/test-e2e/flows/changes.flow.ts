@@ -27,7 +27,7 @@ flow.describe("changes", () => {
 
 		expect(run.exitCode).toBe(1);
 		expect(run.test(CHECKOUT_TEST).errors[0]).toContain(
-			`${REFUSED} (generate: "${INTENT.add}")`,
+			`${REFUSED} (generate: "${INTENT.add}") at .intent/tests/checkout.spec.ts/`,
 		);
 		expect(await project.agentCalls()).toEqual([]);
 		expect(await project.stepFiles()).toEqual([]);
@@ -72,9 +72,9 @@ flow.describe("changes", () => {
 			});
 
 			expect(run.test(CHECKOUT_TEST).errors[0]).toContain("Timeout 1000ms");
-			expect(run.test(CHECKOUT_TEST).notes.join()).toContain(
-				"No diagnoses here.",
-			);
+			expect(run.test(CHECKOUT_TEST).notes).toEqual([
+				"Skipped the diagnosis: No diagnoses here.",
+			]);
 			expect(await project.stepFiles()).toEqual(before);
 			expect(await project.agentCalls()).toHaveLength(3);
 		},

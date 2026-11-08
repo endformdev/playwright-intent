@@ -9,7 +9,7 @@ flow.describe("replaying steps", () => {
 			await project.run();
 			const callsAfterGenerating = (await project.agentCalls()).length;
 
-			const replay = await project.run({ ci: true });
+			const replay = await project.run();
 
 			expect(replay.exitCode).toBe(0);
 			expect(await project.agentCalls()).toHaveLength(callsAfterGenerating);
@@ -54,14 +54,6 @@ flow.describe("replaying steps", () => {
 			expect(await project.stepFiles()).toEqual(stepsBefore);
 		},
 	);
-
-	flow("a miss generates by default", async ({ project }) => {
-		await project.scriptAgent(checkoutScript());
-
-		const run = await project.run();
-
-		expect(run.exitCode).toBe(0);
-	});
 
 	flow("deleting a step generates it again", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());

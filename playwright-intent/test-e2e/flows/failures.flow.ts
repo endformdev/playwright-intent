@@ -71,9 +71,7 @@ flow.describe("failures", () => {
 				},
 			});
 
-			const run = await project.run({
-				shop: "renamed-add-link",
-			});
+			const run = await project.run({ shop: "renamed-add-link" });
 
 			expect(run.exitCode).toBe(0);
 			expect(run.test(CHECKOUT_TEST).attempts).toEqual(["passed"]);
@@ -141,13 +139,8 @@ flow.describe("failures", () => {
 			},
 		});
 
-		const run = await project.run({
-			shop: "renamed-add-link",
-		});
-		const nextRun = await project.run({
-			ci: true,
-			shop: "renamed-add-link",
-		});
+		const run = await project.run({ shop: "renamed-add-link" });
+		const nextRun = await project.run({ shop: "renamed-add-link" });
 
 		expect(run.exitCode).toBe(1);
 		expect(run.test(CHECKOUT_TEST).errors[0]).toContain("Saved a repair");
@@ -206,13 +199,9 @@ flow.describe("failures", () => {
 				generate: { [INTENT.add]: [solved(FIXED_ADD), solved(FIXED_ADD)] },
 			});
 
-			const failed = await project.run({
-				shop: "renamed-add-link",
-			});
+			const failed = await project.run({ shop: "renamed-add-link" });
 			const remaining = await project.stepFiles();
-			const passed = await project.run({
-				shop: "renamed-add-link",
-			});
+			const passed = await project.run({ shop: "renamed-add-link" });
 
 			expect(failed.exitCode).toBe(1);
 			expect(remaining).toEqual([CHECKOUT_FILE, PAY_FILE]);
@@ -241,9 +230,7 @@ flow.describe("failures", () => {
 			},
 		});
 
-		const run = await project.run({
-			shop: "renamed-add-link",
-		});
+		const run = await project.run({ shop: "renamed-add-link" });
 
 		expect(run.test(CHECKOUT_TEST).notes[0]).toContain("aren't in this test");
 		expect(await project.stepFiles()).toEqual(stepsBefore);
@@ -262,9 +249,7 @@ flow.describe("failures", () => {
 				},
 			});
 
-			const run = await project.run({
-				shop: "renamed-add-link",
-			});
+			const run = await project.run({ shop: "renamed-add-link" });
 
 			expect(run.exitCode).toBe(1);
 			expect(run.test(CHECKOUT_TEST).errors[0]).toContain("Timeout 1000ms");
@@ -287,9 +272,7 @@ flow.describe("failures", () => {
 				},
 			});
 
-			const run = await project.run({
-				shop: "broken-payment",
-			});
+			const run = await project.run({ shop: "broken-payment" });
 
 			expect(run.exitCode).toBe(1);
 			expect(run.test(CHECKOUT_TEST).notes[0]).toContain(
@@ -312,9 +295,7 @@ flow.describe("failures", () => {
 				},
 			});
 
-			const refused = await project.run({
-				shop: "broken-payment",
-			});
+			const refused = await project.run({ shop: "broken-payment" });
 			await project.run({ shop: "broken-payment" });
 
 			const [diagnosis] = await diagnoses(project);
@@ -359,9 +340,7 @@ flow.describe("failures", () => {
 				},
 			});
 
-			const run = await project.run({
-				shop: "renamed-add-link",
-			});
+			const run = await project.run({ shop: "renamed-add-link" });
 
 			const notes = run.test(CHECKOUT_TEST).notes.join("\n");
 			expect(notes).toContain("Check these assertion changes");
@@ -476,9 +455,7 @@ flow.describe("failures", () => {
 		await generateCheckout(project);
 		await project.scriptAgent({});
 
-		const run = await project.run({
-			shop: "renamed-add-link",
-		});
+		const run = await project.run({ shop: "renamed-add-link" });
 
 		const summary = run.test(CHECKOUT_TEST);
 		expect(summary.errors[0]).toContain("Timeout 1000ms");

@@ -21,22 +21,15 @@ export interface StepIdentity {
  * `tests/cart.spec.ts/cart - guest checkout/fill out the checkout.ts`
  */
 export function stepKey({ testFile, titles, intent }: StepIdentity): string {
-	const folder = testFolder({ testFile, titles });
-	return `${folder}/${sanitizeSegment(intent)}${STEP_EXTENSION}`;
-}
-
-/** The folder that holds all of a test's steps. */
-function testFolder({
-	testFile,
-	titles,
-}: Omit<StepIdentity, "intent">): string {
 	const fileSegments = testFile
 		.split(/[\\/]/)
 		.map((segment) => (segment === ".." ? "__" : segment));
 
-	return [...fileSegments, sanitizeSegment(titles.join(TITLE_SEPARATOR))].join(
-		"/",
-	);
+	return [
+		...fileSegments,
+		sanitizeSegment(titles.join(TITLE_SEPARATOR)),
+		`${sanitizeSegment(intent)}${STEP_EXTENSION}`,
+	].join("/");
 }
 
 /** Deterministic across macOS, Linux and Windows filesystems. */
