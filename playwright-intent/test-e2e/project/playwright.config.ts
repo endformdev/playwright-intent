@@ -70,9 +70,7 @@ export default defineConfig<IntentUseOptions>({
 		intent: {
 			mode: INTENT_E2E_CONFIG_MODE as IntentMode | undefined,
 			model: modelScript ? createScriptedModel(modelScript) : undefined,
-			limits: modelScript?.maxTurns
-				? { maxTurns: modelScript.maxTurns }
-				: undefined,
+			limits: modelScript?.limits,
 			agent:
 				INTENT_E2E_NO_AGENT || modelScript ? undefined : createScriptedAgent(),
 			prompts: customPrompts(),

@@ -109,7 +109,7 @@ export type FailureDecision =
 	| { action: "regenerate"; steps: string[]; reason?: string }
 	/** Looks like a one-off. Leave the cache alone. */
 	| { action: "rerun"; reason: string }
-	/** Looks like a real bug. Leave the cache alone. */
+	/** A real bug, or the agent never answered. Leave the cache alone. */
 	| { action: "fail"; reason: string };
 
 export type DiagnoseOutcome = FailureDecision & { transcript?: string };
