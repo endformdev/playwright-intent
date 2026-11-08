@@ -6,7 +6,7 @@ const REFUSED = "The changes policy refused a step change";
 
 async function generateCheckout(project: Project) {
 	await project.scriptAgent(checkoutScript());
-	await project.run({ mode: "missing" });
+	await project.run();
 }
 
 /** The project sets `changes: { local: allow(), ci: refuse() }`. */
@@ -41,30 +41,41 @@ flow.describe("changes", () => {
 		expect(run.exitCode).toBe(0);
 	});
 
-	flow("refuse stops all mode clearing steps", async ({ project }) => {
+	flow("refuse doesn't need a model", async ({ project }) => {
+		const run = await project.run({ ci: true, withoutAgent: true });
+
+		expect(run.test(CHECKOUT_TEST).errors[0]).toContain(REFUSED);
+	});
+
+	flow("refuse fails a stale step and leaves it alone", async ({ project }) => {
 		await generateCheckout(project);
 		const before = await project.stepFiles();
 
-		const run = await project.run({ mode: "all", ci: true });
+		const run = await project.run({ shop: "renamed-add-link", ci: true });
 
-		expect(run.test(CHECKOUT_TEST).errors[0]).toContain(`${REFUSED} (clear`);
+		expect(run.exitCode).toBe(1);
+		expect(run.test(CHECKOUT_TEST).errors[0]).toContain("Timeout 1000ms");
+		expect(run.test(CHECKOUT_TEST).notes).toEqual([]);
 		expect(await project.stepFiles()).toEqual(before);
 		expect(await project.agentCalls()).toHaveLength(3);
 	});
 
 	flow(
-		"refuse skips diagnosis, and the test keeps its own error",
+		"a custom policy can generate but keep failures as failures",
 		async ({ project }) => {
 			await generateCheckout(project);
+			const before = await project.stepFiles();
 
 			const run = await project.run({
-				mode: "changed",
 				shop: "renamed-add-link",
-				ci: true,
+				generateOnly: true,
 			});
 
 			expect(run.test(CHECKOUT_TEST).errors[0]).toContain("Timeout 1000ms");
-			expect(run.output).toContain(`${REFUSED} (diagnose: "${INTENT.add}")`);
+			expect(run.test(CHECKOUT_TEST).notes.join()).toContain(
+				"No diagnoses here.",
+			);
+			expect(await project.stepFiles()).toEqual(before);
 			expect(await project.agentCalls()).toHaveLength(3);
 		},
 	);

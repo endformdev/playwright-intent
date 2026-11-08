@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runs changed mode against real bugs and real UI changes, from a clean baseline.
+"""Runs the agent against real bugs and real UI changes, from a clean baseline.
 
 Usage: failures.py [results.jsonl] [scenario,scenario]
 """
@@ -43,9 +43,11 @@ SCENARIOS = [
     ("handwritten-step", "a step passes but does the wrong thing", NAME, {}),
 ]
 
-def run(mode, grep, faults=None, retries=0):
-    env = {k: v for k, v in os.environ.items() if k not in ("CI", "FAULTS", "PW_INTENT")}
-    env.update(BASE_URL="http://localhost:3000", PW_INTENT=mode)
+def run(grep, faults=None, retries=0, replay_only=False):
+    env = {k: v for k, v in os.environ.items() if k not in ("CI", "FAULTS", "ENDFORM")}
+    env.update(BASE_URL="http://localhost:3000")
+    if replay_only:
+        env["ENDFORM"] = "true"
     if faults:
         env["FAULTS"] = faults
     done = subprocess.run(["./node_modules/.bin/playwright", "test", "-c", "intent.config.ts", f"--retries={retries}", "-g", grep],
@@ -112,12 +114,12 @@ def main():
                     step.write_text(text.replace("	await expect(page.getByText('John Doe')).toBeVisible();\n", ""))
         started = time.time()
         try:
-            code, report = run("changed", grep, faults=name if kind in ("bug", "transient") and not edits else None, retries=1)
+            code, report = run(grep, faults=name if kind in ("bug", "transient") and not edits else None, retries=1)
             attempts, notes, decisions, turns = summary(report)
             changed = diff()
             verify = None
             if kind in ("stale", "handwritten-step"):
-                verify = [run("none", grep)[0] for _ in range(2)]
+                verify = [run(grep, replay_only=True)[0] for _ in range(2)]
                 steps = {str(p.relative_to(ROOT / ".intent")): p.read_text() for p in (ROOT / ".intent").rglob("*.ts") if p.is_file() and str(p.relative_to(ROOT / ".intent")) in changed}
             else:
                 steps = {}

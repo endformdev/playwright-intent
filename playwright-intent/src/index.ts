@@ -27,12 +27,7 @@ export type {
 	IntentFixtures,
 } from "./fixture/intent-fixture";
 export { createIntentTest } from "./fixture/intent-fixture";
-export type {
-	IntentLimits,
-	IntentMode,
-	IntentOptions,
-	IntentUseOptions,
-} from "./options";
+export type { IntentLimits, IntentOptions, IntentUseOptions } from "./options";
 export type { StepVariables } from "./step/intent-text";
 export type { StepContext } from "./step/run-step";
 export type {

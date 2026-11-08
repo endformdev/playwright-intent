@@ -11,7 +11,6 @@ export interface IntentStore {
 	get(key: string): Promise<string | null>;
 	put(key: string, source: string): Promise<void>;
 	delete(key: string): Promise<void>;
-	list(prefix: string): Promise<string[]>;
 }
 
 /** What `use.intent.store` takes: a store, and what happens to its changes. */

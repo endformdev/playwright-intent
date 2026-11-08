@@ -20,7 +20,7 @@ await expect(page.getByRole("heading", { name: "Never here" })).toBeVisible();`;
 
 async function generateCheckout(project: Project) {
 	await project.scriptAgent(checkoutScript());
-	await project.run({ mode: "missing" });
+	await project.run();
 }
 
 /** Generates the checkout, with one step saved as `code` instead. */
@@ -38,7 +38,7 @@ async function generateWithStep(
 		},
 	];
 	await project.scriptAgent(script);
-	await project.run({ mode: "missing" });
+	await project.run();
 }
 
 async function diagnoses(project: Project) {
@@ -47,10 +47,10 @@ async function diagnoses(project: Project) {
 }
 
 /**
- * In `changed` mode the agent diagnoses each failure on the live page. Flows
+ * When steps may change, the agent diagnoses each failure on the live page. Flows
  * check the decision is applied and that the limits hold, whatever it asks for.
  */
-flow.describe("failures in changed mode", () => {
+flow.describe("failures", () => {
 	flow(
 		"repair on an unchanged page continues the same attempt",
 		async ({ project }) => {
@@ -72,7 +72,6 @@ flow.describe("failures in changed mode", () => {
 			});
 
 			const run = await project.run({
-				mode: "changed",
 				shop: "renamed-add-link",
 			});
 
@@ -93,7 +92,7 @@ flow.describe("failures in changed mode", () => {
 			},
 		});
 
-		await project.run({ mode: "changed", shop: "renamed-add-link" });
+		await project.run({ shop: "renamed-add-link" });
 
 		const [call] = await diagnoses(project);
 		expect(call?.task).toMatchObject({
@@ -122,7 +121,7 @@ flow.describe("failures in changed mode", () => {
 				},
 			});
 
-			const run = await project.run({ mode: "changed", retries: 1 });
+			const run = await project.run({ retries: 1 });
 
 			expect((await diagnoses(project))[0]?.task).toMatchObject({
 				pageUnchanged: false,
@@ -143,11 +142,10 @@ flow.describe("failures in changed mode", () => {
 		});
 
 		const run = await project.run({
-			mode: "changed",
 			shop: "renamed-add-link",
 		});
 		const nextRun = await project.run({
-			mode: "none",
+			ci: true,
 			shop: "renamed-add-link",
 		});
 
@@ -181,7 +179,7 @@ flow.describe("failures in changed mode", () => {
 				},
 			});
 
-			const run = await project.run({ mode: "changed", retries: 1 });
+			const run = await project.run({ retries: 1 });
 
 			expect(run.test(CHECKOUT_TEST).attempts).toEqual(["failed", "passed"]);
 			expect(await project.stepFiles()).toEqual([
@@ -209,12 +207,10 @@ flow.describe("failures in changed mode", () => {
 			});
 
 			const failed = await project.run({
-				mode: "changed",
 				shop: "renamed-add-link",
 			});
 			const remaining = await project.stepFiles();
 			const passed = await project.run({
-				mode: "changed",
 				shop: "renamed-add-link",
 			});
 
@@ -246,7 +242,6 @@ flow.describe("failures in changed mode", () => {
 		});
 
 		const run = await project.run({
-			mode: "changed",
 			shop: "renamed-add-link",
 		});
 
@@ -268,7 +263,6 @@ flow.describe("failures in changed mode", () => {
 			});
 
 			const run = await project.run({
-				mode: "changed",
 				shop: "renamed-add-link",
 			});
 
@@ -294,7 +288,6 @@ flow.describe("failures in changed mode", () => {
 			});
 
 			const run = await project.run({
-				mode: "changed",
 				shop: "broken-payment",
 			});
 
@@ -320,10 +313,9 @@ flow.describe("failures in changed mode", () => {
 			});
 
 			const refused = await project.run({
-				mode: "changed",
 				shop: "broken-payment",
 			});
-			await project.run({ mode: "changed", shop: "broken-payment" });
+			await project.run({ shop: "broken-payment" });
 
 			const [diagnosis] = await diagnoses(project);
 			expect(diagnosis?.task).toMatchObject({ location: "outside" });
@@ -342,7 +334,6 @@ flow.describe("failures in changed mode", () => {
 		});
 
 		await project.run({
-			mode: "changed",
 			shop: "renamed-add-link",
 			failureContext: "This test failed 4 times this week.",
 		});
@@ -369,7 +360,6 @@ flow.describe("failures in changed mode", () => {
 			});
 
 			const run = await project.run({
-				mode: "changed",
 				shop: "renamed-add-link",
 			});
 
@@ -402,7 +392,6 @@ flow.describe("failures in changed mode", () => {
 		});
 
 		const run = await project.run({
-			mode: "changed",
 			shop: "renamed-add-link",
 			retries: 1,
 		});
@@ -427,7 +416,7 @@ flow.describe("failures in changed mode", () => {
 		await new Promise(() => {});`,
 			);
 
-			const run = await project.run({ mode: "changed", timeout: 3_000 });
+			const run = await project.run({ timeout: 3_000 });
 
 			expect(run.test(CHECKOUT_TEST).attempts).toEqual(["timedOut"]);
 			expect(run.test(CHECKOUT_TEST).notes[0]).toContain("It hung.");
@@ -451,7 +440,6 @@ flow.describe("failures in changed mode", () => {
 			});
 
 			const run = await project.run({
-				mode: "changed",
 				timeout: 3_000,
 				retries: 1,
 			});
@@ -478,7 +466,7 @@ flow.describe("failures in changed mode", () => {
 			},
 		});
 
-		const run = await project.run({ mode: "changed" });
+		const run = await project.run();
 
 		expect(run.exitCode).toBe(0);
 		expect(run.test(CHECKOUT_TEST).attempts).toEqual(["passed"]);
@@ -489,7 +477,6 @@ flow.describe("failures in changed mode", () => {
 		await project.scriptAgent({});
 
 		const run = await project.run({
-			mode: "changed",
 			shop: "renamed-add-link",
 		});
 
@@ -502,7 +489,6 @@ flow.describe("failures in changed mode", () => {
 		await generateCheckout(project);
 
 		const run = await project.run({
-			mode: "changed",
 			shop: "renamed-add-link",
 			withoutAgent: true,
 		});
@@ -515,7 +501,7 @@ flow.describe("failures in changed mode", () => {
 		await generateCheckout(project);
 		await project.scriptAgent({});
 
-		const run = await project.run({ mode: "changed" });
+		const run = await project.run();
 
 		expect(run.exitCode).toBe(0);
 		expect(await diagnoses(project)).toEqual([]);

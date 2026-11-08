@@ -79,8 +79,8 @@ In a second terminal, create the baseline every scenario starts from:
 cd ../playwright-tutorial
 export BASE_URL=http://localhost:3000
 rm -rf .intent
-PW_INTENT=missing ./node_modules/.bin/playwright test -c intent.config.ts
-PW_INTENT=none ./node_modules/.bin/playwright test -c intent.config.ts --repeat-each=3
+./node_modules/.bin/playwright test -c intent.config.ts
+ENDFORM=true ./node_modules/.bin/playwright test -c intent.config.ts --repeat-each=3
 rm -rf /tmp/intent-baseline && cp -R .intent /tmp/intent-baseline
 ```
 
@@ -99,7 +99,7 @@ To see the problems from before the rules, check out `3f2876e`, which has the ea
 ## Consequences
 
 - **Pass rates can't be our measure of quality.** Any evaluation has to look at the code too, and the model will need checking again whenever it or the prompts change.
-- **`changed` and `all` can make a suite weaker while it stays green.** That's the failure we most wanted to avoid: a test that adapts to a bug instead of catching it. Conditional steps are the clearest way that can happen.
+- **Letting the agent change steps can make a suite weaker while it stays green.** That's the failure we most wanted to avoid: a test that adapts to a bug instead of catching it. Conditional steps are the clearest way that can happen.
 - **Review matters more than it looks.** Steps live in Git so people can read them, and the run output lists assertion changes, but it won't flag a new `if`.
 - **Removing the guardrails is still reasonable, but it now rests on prompt rules alone.** We removed them as premature when we had no evidence of what real code looks like. We have some now: these patterns do appear, and rules reduce them without removing them.
 - **Results here are thin.** One app, one model, and each scenario ran a few times. Another model could behave quite differently.
@@ -109,4 +109,4 @@ To see the problems from before the rules, check out `3f2876e`, which has the ea
 1. **Should something check saved code?** Warning in the run output is cheaper and less risky than blocking, and could reuse the patterns in `scan_steps.py`. Blocking could trap a legitimate step.
 2. **Should a repair be proven from a clean page before it's trusted?** A `ready` repair currently continues without ever replaying from the step's starting point. Treating every repair as `dirty` would prove it on the retry, at the cost of one retry each.
 3. **Should trials become a repeatable evaluation?** They could run across several models before a release, with `scan_steps.py` as part of the score.
-4. **Should a person have to accept repairs?** For example, `changed` could save repairs for review rather than letting them run straight away.
+4. **Should a person have to accept repairs?** For example, the agent could save repairs for review rather than letting them run straight away.

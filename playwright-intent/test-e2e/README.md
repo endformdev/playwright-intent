@@ -10,7 +10,7 @@ Most of what we care about can't be checked from inside the test it happens in:
 
 - Tests fail on purpose, and a failing test can't assert that it failed correctly.
 - A retry runs in a new worker process, so nothing in memory survives to check it.
-- The mode comes from the environment, so it's fixed for a whole run.
+- Whether steps may change comes from the environment, so it's fixed for a whole run.
 - Most behaviour only shows across runs: generate in one, replay in the next.
 
 So the unit of testing is a run, and a flow is a sequence of runs.
@@ -19,13 +19,13 @@ So the unit of testing is a run, and a flow is a sequence of runs.
 
 Every case is forced with one of five levers, so no flow depends on timing or luck:
 
-| Lever     | How                                  | Forces                                                                  |
-| --------- | ------------------------------------ | ----------------------------------------------------------------------- |
-| The agent | `project.scriptAgent()`              | Every outcome: solved, dirty, failed, and each failure decision         |
-| The app   | `project.run({ shop })`              | Stale steps, redesigns and real bugs, by changing the shop between runs |
-| The tests | `project.replaceInFile()`            | Reworded intents, renamed tests, moved steps                            |
-| The run   | `project.run({ mode, retries, ci })` | Modes, retries, CI                                                      |
-| The cache | `project.writeStep()`                | Corrupted or conflicting step files                                     |
+| Lever     | How                            | Forces                                                                  |
+| --------- | ------------------------------ | ----------------------------------------------------------------------- |
+| The agent | `project.scriptAgent()`        | Every outcome: solved, dirty, failed, and each failure decision         |
+| The app   | `project.run({ shop })`        | Stale steps, redesigns and real bugs, by changing the shop between runs |
+| The tests | `project.replaceInFile()`      | Reworded intents, renamed tests, moved steps                            |
+| The run   | `project.run({ retries, ci })` | Retries, and `refuse()` on CI                                           |
+| The cache | `project.writeStep()`          | Corrupted or conflicting step files                                     |
 
 The usual pattern mirrors real life: generate against the `baseline` shop, change the shop, then run again.
 

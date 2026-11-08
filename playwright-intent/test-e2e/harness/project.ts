@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
-import type { IntentMode } from "playwright-intent";
 import { WORKSPACES } from "../global-setup";
 import {
 	AGENT_CALLS_FILE,
@@ -23,16 +22,14 @@ const PLAYWRIGHT_CLI = createRequire(import.meta.url).resolve(
 );
 
 export interface RunOptions {
-	/** Sets `PW_INTENT`. Leave out to rely on the config or the defaults. */
-	mode?: IntentMode;
-	/** Sets `use.intent.mode` in the project's config. */
-	configMode?: IntentMode;
 	retries?: number;
 	shop?: ShopVariant;
 	/** Runs as if on CI, which picks the project's `changes.ci`. */
 	ci?: boolean;
 	/** Uses `changes: allow()` for every run, instead of a local and CI pair. */
 	allowEverywhere?: boolean;
+	/** Uses a custom policy that generates steps but refuses diagnoses. */
+	generateOnly?: boolean;
 	/** Runs with a config that sets no `use.intent.store`. */
 	withoutStore?: boolean;
 	/** Runs without an agent, like a config that sets no model. */
@@ -213,12 +210,9 @@ export class Project {
 			NO_COLOR: "1",
 			INTENT_E2E_AGENT_SCRIPT: this.#path("agent-script.json"),
 			SHOP_VARIANT: options.shop ?? "baseline",
-			...(options.mode && { PW_INTENT: options.mode }),
-			...(options.configMode && {
-				INTENT_E2E_CONFIG_MODE: options.configMode,
-			}),
 			...(options.ci && { CI: "true" }),
 			...(options.allowEverywhere && { INTENT_E2E_CHANGES: "allow" }),
+			...(options.generateOnly && { INTENT_E2E_CHANGES: "generate-only" }),
 			...(options.withoutStore && { INTENT_E2E_NO_STORE: "1" }),
 			...(options.withoutAgent && { INTENT_E2E_NO_AGENT: "1" }),
 			...(options.failureContext && {

@@ -34,9 +34,9 @@ type Result =
 	| { outcome: "rewind"; message: string }
 	| { outcome: "failed" };
 
-/** In `all` mode, this is what happens to steps replayed on a retry. */
+/** With `refuse()` no step can change, so a failure is just a failure. */
 export function diagnosesFailures(scope: TestScope): boolean {
-	return (scope.mode === "changed" || scope.mode === "all") && !!scope.agent;
+	return !!scope.agent && scope.changePolicy.name !== "refuse";
 }
 
 /**

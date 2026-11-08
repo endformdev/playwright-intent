@@ -6,11 +6,11 @@ const STEP_FILE = `tests/checkout.spec.ts/checkout - guest buys a shirt/${INTENT
 flow.describe("traces and errors", () => {
 	flow("a replayed step shows real lines in the trace", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
-		await project.run({ mode: "missing" });
+		await project.run();
 		const source = await project.readStep(STEP_FILE);
 		const clickLine = lineContaining(source, "Add blue shirt");
 
-		const replay = await project.run({ mode: "none" });
+		const replay = await project.run({ ci: true });
 
 		const { actions, sources } = replay.test(CHECKOUT_TEST).trace();
 		expect(actions).toContainEqual(
@@ -24,10 +24,10 @@ flow.describe("traces and errors", () => {
 
 	flow("a stale step reports the exact failing line", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
-		await project.run({ mode: "missing" });
+		await project.run();
 		const source = await project.readStep(STEP_FILE);
 
-		const run = await project.run({ mode: "none", shop: "renamed-add-link" });
+		const run = await project.run({ ci: true, shop: "renamed-add-link" });
 
 		const [snippet] = run.test(CHECKOUT_TEST).snippets;
 		expect(snippet).toContain(
@@ -38,9 +38,9 @@ flow.describe("traces and errors", () => {
 
 	flow("an ai.do step points at the user's own test", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
-		await project.run({ mode: "missing" });
+		await project.run();
 
-		const replay = await project.run({ mode: "none" });
+		const replay = await project.run({ ci: true });
 
 		const { actions } = replay.test(CHECKOUT_TEST).trace();
 		expect(actions).toContainEqual(

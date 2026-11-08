@@ -21,20 +21,6 @@ function createFileStore(root: string): IntentStore {
 		async delete(key) {
 			await fs.rm(resolve(key), { force: true });
 		},
-		async list(prefix) {
-			const entries = await fs
-				.readdir(resolve(prefix), { recursive: true, withFileTypes: true })
-				.catch(() => []);
-			return entries
-				.filter((entry) => entry.isFile())
-				.map((entry) =>
-					path
-						.relative(root, path.join(entry.parentPath, entry.name))
-						.split(path.sep)
-						.join("/"),
-				)
-				.sort();
-		},
 	};
 }
 

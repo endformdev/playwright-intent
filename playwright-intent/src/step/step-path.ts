@@ -25,8 +25,8 @@ export function stepKey({ testFile, titles, intent }: StepIdentity): string {
 	return `${folder}/${sanitizeSegment(intent)}${STEP_EXTENSION}`;
 }
 
-/** The store prefix that holds all of a test's steps. */
-export function testFolder({
+/** The folder that holds all of a test's steps. */
+function testFolder({
 	testFile,
 	titles,
 }: Omit<StepIdentity, "intent">): string {

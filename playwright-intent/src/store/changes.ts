@@ -5,12 +5,11 @@ export interface StepChange {
 	/**
 	 * - `generate`: a step needs new code.
 	 * - `diagnose`: the agent may repair or regenerate steps after a failure.
-	 * - `clear`: `all` mode is removing a test's steps.
 	 */
-	type: "generate" | "diagnose" | "clear";
+	type: "generate" | "diagnose";
 	/** The test's describe and test titles, joined with ` > `. */
 	test: string;
-	/** Missing for `clear`, and for failures outside a step. */
+	/** Missing for failures outside a step. */
 	intent?: string;
 }
 

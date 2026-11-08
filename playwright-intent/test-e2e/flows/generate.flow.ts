@@ -16,7 +16,7 @@ flow.describe("generating steps", () => {
 		async ({ project }) => {
 			await project.scriptAgent(checkoutScript());
 
-			const run = await project.run({ mode: "missing" });
+			const run = await project.run();
 
 			expect(run.exitCode).toBe(0);
 			expect(run.test(CHECKOUT_TEST).attempts).toEqual(["passed"]);
@@ -38,7 +38,7 @@ flow.describe("generating steps", () => {
 		];
 		await project.scriptAgent(script);
 
-		await project.run({ mode: "missing" });
+		await project.run();
 
 		const [call] = await project.agentCalls();
 		expect(call?.logs).toEqual(["looking around"]);
@@ -52,7 +52,7 @@ flow.describe("generating steps", () => {
 		async ({ project }) => {
 			await project.scriptAgent(checkoutScript());
 
-			await project.run({ mode: "missing" });
+			await project.run();
 
 			const calls = await project.agentCalls();
 			expect(calls.map((call) => call.task.testFile.line)).toEqual([7, 8, 9]);
@@ -84,7 +84,7 @@ export const goToCheckout = (ai: { do(intent: string): Promise<void> }) =>
 				'import { expect, goToCheckout, test } from "./fixtures";',
 			);
 
-			await project.run({ mode: "missing" });
+			await project.run();
 
 			const calls = await project.agentCalls();
 			const checkout = calls.find((call) => call.intent === INTENT.checkout);
@@ -100,7 +100,7 @@ export const goToCheckout = (ai: { do(intent: string): Promise<void> }) =>
 			'{ email: ["guest", "example.com"].join("@") }',
 		);
 
-		await project.run({ mode: "missing" });
+		await project.run();
 
 		const calls = await project.agentCalls();
 		const pay = calls.find((call) => call.intent === INTENT.pay);
@@ -131,7 +131,7 @@ console.log(Date.now() - start);`,
 		await page.getByRole("button", { name: "Missing" }).click();`,
 			);
 
-			const run = await project.run({ mode: "missing" });
+			const run = await project.run();
 
 			const pay = (await project.agentCalls()).find(
 				(call) => call.intent === INTENT.pay,
@@ -144,7 +144,7 @@ console.log(Date.now() - start);`,
 	flow("each step knows which steps came before it", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
 
-		await project.run({ mode: "missing" });
+		await project.run();
 
 		const calls = await project.agentCalls();
 		expect(calls.at(-1)?.task.previousSteps).toEqual([
@@ -160,7 +160,7 @@ console.log(Date.now() - start);`,
 			script.generate[INTENT.add] = [solvedButDirty(CODE.add)];
 			await project.scriptAgent(script);
 
-			const run = await project.run({ mode: "missing", retries: 1 });
+			const run = await project.run({ retries: 1 });
 
 			expect(run.exitCode).toBe(0);
 			expect(run.test(CHECKOUT_TEST).outcome).toBe("flaky");
@@ -180,13 +180,13 @@ console.log(Date.now() - start);`,
 			script.generate[INTENT.add] = [solvedButDirty(CODE.add)];
 			await project.scriptAgent(script);
 
-			const first = await project.run({ mode: "missing" });
+			const first = await project.run();
 			expect(first.exitCode).toBe(1);
 			expect(first.test(CHECKOUT_TEST).errors[0]).toContain(
 				"the page can't continue from here",
 			);
 
-			const second = await project.run({ mode: "missing" });
+			const second = await project.run();
 			expect(second.exitCode).toBe(0);
 		},
 	);
@@ -198,7 +198,7 @@ console.log(Date.now() - start);`,
 				generate: { [INTENT.add]: [failed("There's no blue shirt here.")] },
 			});
 
-			const run = await project.run({ mode: "missing" });
+			const run = await project.run();
 
 			expect(run.exitCode).toBe(1);
 			expect(run.test(CHECKOUT_TEST).errors[0]).toContain(
@@ -211,7 +211,7 @@ console.log(Date.now() - start);`,
 	flow(
 		"generating without an agent explains what to configure",
 		async ({ project }) => {
-			const run = await project.run({ mode: "missing", withoutAgent: true });
+			const run = await project.run({ withoutAgent: true });
 
 			expect(run.test(CHECKOUT_TEST).errors[0]).toContain("use.intent.model");
 		},

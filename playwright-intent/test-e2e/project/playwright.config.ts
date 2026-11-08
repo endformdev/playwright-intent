@@ -5,7 +5,6 @@ import {
 	defineConfig,
 	devices,
 	fileStore,
-	type IntentMode,
 	type IntentStoreProvider,
 	type IntentUseOptions,
 	refuse,
@@ -16,7 +15,6 @@ import { createScriptedModel, readModelScript } from "./scripted-model";
 
 const {
 	INTENT_E2E_CHANGES,
-	INTENT_E2E_CONFIG_MODE,
 	INTENT_E2E_DIAGNOSE_PROMPT,
 	INTENT_E2E_FAILURE_CONTEXT,
 	INTENT_E2E_GENERATE_PROMPT,
@@ -27,8 +25,17 @@ const {
 
 const modelScript = readModelScript();
 
-const changes: Changes =
-	INTENT_E2E_CHANGES === "allow" ? allow() : { local: allow(), ci: refuse() };
+function changePolicy(): Changes {
+	if (INTENT_E2E_CHANGES === "allow") return allow();
+	if (INTENT_E2E_CHANGES === "generate-only") {
+		return (change) => {
+			if (change.type === "diagnose") throw new Error("No diagnoses here.");
+		};
+	}
+	return { local: allow(), ci: refuse() };
+}
+
+const changes = changePolicy();
 
 function storeProvider(): IntentStoreProvider {
 	// Flows use this to check the error for a config without a store.
@@ -68,7 +75,6 @@ export default defineConfig<IntentUseOptions>({
 		actionTimeout: 1_000,
 		trace: "on",
 		intent: {
-			mode: INTENT_E2E_CONFIG_MODE as IntentMode | undefined,
 			model: modelScript ? createScriptedModel(modelScript) : undefined,
 			limits: modelScript?.limits,
 			agent:
