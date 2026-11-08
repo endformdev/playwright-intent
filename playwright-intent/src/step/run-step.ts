@@ -232,6 +232,11 @@ async function generateStep(
 			`The agent couldn't complete "${intent}": ${outcome.message}`,
 		);
 	}
+	if (outcome.status === "unanswered") {
+		throw new IntentAgentFailedError(
+			`Nothing was saved for "${intent}". ${outcome.message}`,
+		);
+	}
 
 	await saveStep(scope, key, intent, outcome.code);
 	if (failed) {

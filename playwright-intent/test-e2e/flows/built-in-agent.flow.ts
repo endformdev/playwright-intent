@@ -71,21 +71,27 @@ flow.describe("the built-in agent", () => {
 		);
 	});
 
-	flow("giving up fails the test and saves nothing", async ({ project }) => {
-		await project.scriptModel({
-			turns: [{ tool: "give_up", input: { reason: "There's no shirt." } }],
-		});
+	flow(
+		"failing a step fails the test and saves nothing",
+		async ({ project }) => {
+			await project.scriptModel({
+				turns: [{ tool: "fail", input: { reason: "There's no shirt." } }],
+			});
 
-		const run = await project.run({ mode: "missing" });
+			const run = await project.run({ mode: "missing" });
 
-		expect(run.exitCode).toBe(1);
-		expect(run.test(CHECKOUT_TEST).errors[0]).toContain("There's no shirt.");
-		expect(await project.stepFiles()).toEqual([]);
-	});
+			expect(run.exitCode).toBe(1);
+			expect(run.test(CHECKOUT_TEST).errors[0]).toContain("There's no shirt.");
+			expect(await project.stepFiles()).toEqual([]);
+			const [firstCall] = await project.modelCalls();
+			expect(firstCall).toContain('"name":"fail"');
+			expect(firstCall).not.toContain("give_up");
+		},
+	);
 
 	flow("running out of turns saves nothing", async ({ project }) => {
 		const look: ModelTurn = { tool: "look", input: {} };
-		await project.scriptModel({ turns: [look, look], maxTurns: 2 });
+		await project.scriptModel({ turns: [look, look], limits: { maxTurns: 2 } });
 
 		const run = await project.run({ mode: "missing" });
 

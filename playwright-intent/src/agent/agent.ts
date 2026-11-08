@@ -85,7 +85,9 @@ export type GenerateOutcome =
 			page: "ready" | "dirty";
 			transcript?: string;
 	  }
-	| { status: "failed"; message: string; transcript?: string };
+	| { status: "failed"; message: string; transcript?: string }
+	/** A limit or a model error stopped it. Says nothing about the app. */
+	| { status: "unanswered"; message: string; transcript?: string };
 
 export interface DiagnoseTask extends StepTask {
 	/** `outside` means the test failed in hand-written code after the steps. */
@@ -110,7 +112,9 @@ export type FailureDecision =
 	/** Looks like a one-off. Leave the cache alone. */
 	| { action: "rerun"; reason: string }
 	/** Looks like a real bug. Leave the cache alone. */
-	| { action: "fail"; reason: string };
+	| { action: "fail"; reason: string }
+	/** A limit or a model error stopped it. Says nothing about the app. */
+	| { action: "unanswered"; reason: string };
 
 export type DiagnoseOutcome = FailureDecision & { transcript?: string };
 

@@ -53,7 +53,7 @@ The library owns the browser, cache and limits. An `IntentAgent` observes, runs 
 
 Users choose a model, not an agent. People should be able to bring their plan or provider, but not their own agent loop, so `use.intent.agent` is only a hook for this library's tests.
 
-The built-in agent takes any AI SDK model, so `use.intent.model` can be a provider's model or a Vercel AI Gateway id like `"openai/gpt-6-luna"`. It explores with `run` and `look`, then ends with `finish` or `give_up`. Each generation attaches a transcript to the test. Observations list the page's test ids, because the ARIA snapshot doesn't show them.
+The built-in agent takes any AI SDK model, so `use.intent.model` can be a provider's model or a Vercel AI Gateway id like `"openai/gpt-6-luna"`. It explores with `run` and `look`, then ends with `finish` or `fail`. Each generation attaches a transcript to the test. Observations list the page's test ids, because the ARIA snapshot doesn't show them.
 
 Everything the model reads is in `src/agent/prompts.ts`. The two prompts, `generate` and `diagnose`, say what good work looks like. They're exported as `defaultPrompts`, and `use.intent.prompts` can extend or replace them. The tools can't change, so how to use them correctly lives in the tool descriptions, where a custom prompt can't remove it. A prompt can't get around the limits the library enforces, but it can produce worse code.
 
@@ -95,6 +95,8 @@ Retries are the only rewind, because a fixture can't restart a test. In `changed
 `use.intent.context` adds text to the diagnosis, like Endform's failure history.
 
 The agent's reasons appear in the run output and as `intent` annotations, and each diagnosis attaches a transcript. If the diagnosis itself fails, the test keeps its own error.
+
+Hitting the turn or time limit, or a model error, says nothing about the app, so the agent returns `unanswered` from both generating and diagnosing. The test fails, naming the limit or error, nothing is saved or moved, and nothing goes on to diagnose it. A diagnosis that doesn't answer leaves the test its own error.
 
 The library enforces these limits, whatever the agent asks for:
 
