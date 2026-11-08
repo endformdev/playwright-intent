@@ -40,13 +40,8 @@ npm install -D playwright-intent
 
 ```ts
 // playwright.config.ts
-import {
-	allow,
-	defineConfig,
-	fileStore,
-	type IntentUseOptions,
-	refuse,
-} from "playwright-intent";
+import { defineConfig, type IntentUseOptions } from "playwright-intent";
+import { allow, fileStore, refuse } from "playwright-intent/file-store";
 
 export default defineConfig<IntentUseOptions>({
 	use: {
@@ -110,12 +105,13 @@ So far, generated steps have only been tried with `openai/gpt-6-luna`.
 
 ## Stores and changes
 
-`fileStore` keeps steps in `.intent` beside your Playwright config.
+`fileStore` keeps steps in `.intent` beside your Playwright config. It and the policies below all come from `playwright-intent/file-store`.
 
 A store always needs `changes`, because a change that nobody keeps is lost. A step generated on a CI machine disappears with it, unless you've decided what should happen. `changes` is a policy checked before the agent starts:
 
 - `allow()` lets the agent write missing steps and diagnose failing ones, and leaves its changes on disk for you to review and commit.
 - `refuse()` never calls the model. A missing step fails the test, and a failing step fails like any other test.
+- `commit()` and `propose()` prove each change on a retry and deliver the proven ones to the pull request. See [Proven changes in CI](#proven-changes-in-ci).
 
 Pass one policy to use it everywhere, or `{ local, ci }` to choose by whether the `CI` environment variable is set:
 
@@ -135,6 +131,74 @@ fileStore({
 ```
 
 To regenerate steps, delete their files from `.intent`, and the next run writes them again.
+
+`openFileStore(root)` from `playwright-intent/file-store` is the store on its own, for scripts that need to read `.intent` outside a test.
+
+### Proven changes in CI
+
+`commit()` and `propose()` are for CI runs that should produce a fix rather than lose it. A saved change never continues in the same attempt. The attempt fails on purpose, and a retry replays the code from a clean page to prove it.
+
+- With `commit()`, the test passes on the retry and shows as flaky.
+- With `propose()`, the test stays red.
+
+Each change uses one retry, so set `retries` to at least the number of steps you expect to break.
+
+On a pull request, the reporter delivers what a run proved. With `commit()` that's one commit on the branch, and the bot's commit needs its CI run approved. With `propose()` it's a comment with a patch to paste.
+
+Model-written code can read the environment of `playwright test`, so delivery only runs under `playwright merge-reports`, in its own job. Have the tests write a `blob` report, and put the reporter in the config you pass to `merge-reports`:
+
+```ts
+// merge.config.ts
+export default {
+	reporter: [["list"], ["playwright-intent/reporter"]],
+};
+```
+
+```yaml
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      # Install dependencies and browsers, then:
+      - run: npx playwright test
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: blob-report
+          path: blob-report
+
+  deliver:
+    needs: test
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # For commit()
+      pull-requests: write # For propose()
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      # Install dependencies, then:
+      - uses: actions/download-artifact@v5
+        with:
+          name: blob-report
+          path: blob-report
+      - run: npx playwright merge-reports -c merge.config.ts blob-report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+```
+
+With sharding, upload one blob report per shard and download them into the same folder.
+
+The reporter takes `{ outputFile }` to also write the run's changes as JSON. Pull requests from forks and Dependabot get a read-only token and no secrets, so both policies act as `refuse()` there.
 
 ## Prompts
 

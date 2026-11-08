@@ -68,7 +68,7 @@ flow.describe("changes", () => {
 
 			const run = await project.run({
 				shop: "renamed-add-link",
-				generateOnly: true,
+				changes: "generate-only",
 			});
 
 			expect(run.test(CHECKOUT_TEST).errors[0]).toContain("Timeout 1000ms");
@@ -83,7 +83,7 @@ flow.describe("changes", () => {
 	flow("a single policy applies in CI too", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
 
-		const run = await project.run({ ci: true, allowEverywhere: true });
+		const run = await project.run({ ci: true, changes: "allow" });
 
 		expect(run.exitCode).toBe(0);
 		expect(await project.stepFiles()).toHaveLength(3);

@@ -1,19 +1,25 @@
 import {
-	allow,
-	type Changes,
 	defaultPrompts,
 	defineConfig,
 	devices,
-	fileStore,
 	type IntentStoreProvider,
 	type IntentUseOptions,
-	refuse,
 } from "playwright-intent";
+import {
+	allow,
+	type ChangePolicy,
+	type Changes,
+	commit,
+	fileStore,
+	propose,
+	refuse,
+} from "playwright-intent/file-store";
 import { createRemoteStore } from "./remote-store";
 import { createScriptedAgent } from "./scripted-agent";
 import { createScriptedModel, readModelScript } from "./scripted-model";
 
 const {
+	INTENT_E2E_BLOB,
 	INTENT_E2E_CHANGES,
 	INTENT_E2E_DIAGNOSE_PROMPT,
 	INTENT_E2E_FAILURE_CONTEXT,
@@ -25,17 +31,21 @@ const {
 
 const modelScript = readModelScript();
 
-function changePolicy(): Changes {
-	if (INTENT_E2E_CHANGES === "allow") return allow();
-	if (INTENT_E2E_CHANGES === "generate-only") {
-		return (change) => {
-			if (change.type === "diagnose") throw new Error("No diagnoses here.");
-		};
-	}
-	return { local: allow(), ci: refuse() };
-}
+const POLICIES: Record<string, () => ChangePolicy> = {
+	allow,
+	commit,
+	propose,
+	refuse,
+	// Generates steps, and leaves failures alone.
+	"generate-only": () => (change) => {
+		if (change.type === "diagnose") throw new Error("No diagnoses here.");
+	},
+};
 
-const changes = changePolicy();
+const changes: Changes = POLICIES[INTENT_E2E_CHANGES ?? ""]?.() ?? {
+	local: allow(),
+	ci: refuse(),
+};
 
 function storeProvider(): IntentStoreProvider {
 	// Flows use this to check the error for a config without a store.
@@ -68,7 +78,11 @@ export default defineConfig<IntentUseOptions>({
 	workers: 1,
 	timeout: 20_000,
 	expect: { timeout: 1_000 },
-	reporter: [["json", { outputFile: "report.json" }]],
+	reporter: [
+		["json", { outputFile: "report.json" }],
+		["playwright-intent/reporter", { outputFile: "intent-changes.json" }],
+		...(INTENT_E2E_BLOB ? ([["blob"]] as const) : []),
+	],
 	use: {
 		...devices["Desktop Chrome"],
 		baseURL: "http://shop.test",

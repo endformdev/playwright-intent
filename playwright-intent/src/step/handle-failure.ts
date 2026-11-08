@@ -6,6 +6,7 @@ import { IntentRewindError } from "../errors";
 import { lineInStack, readTestFile } from "../fixture/test-file";
 import type { TestScope } from "../fixture/test-scope";
 import { placeholderNames } from "./intent-text";
+import { provedOnRetry, recordChange } from "./record-change";
 import type { StepContext } from "./run-step";
 import { saveStep } from "./save-step";
 import { actedBeforeLine } from "./step-file";
@@ -103,9 +104,8 @@ async function diagnoseFailure(
 	const intent = step?.intent ?? "";
 
 	try {
-		await scope.changePolicy.check({
+		await scope.checkChange({
 			type: "diagnose",
-			test: scope.testTitle,
 			...(step && { intent, key: step.key }),
 		});
 	} catch (cause) {
@@ -177,10 +177,28 @@ async function applyDecision(
 				report(scope, `The agent can't repair code outside a step${because}`);
 				return { outcome: "failed" };
 			}
-			await saveStep(scope, step.key, step.intent, decision.code);
+			const source = await saveStep(
+				scope,
+				step.key,
+				step.intent,
+				decision.code,
+			);
+			await recordChange(scope, {
+				kind: "write",
+				key: step.key,
+				cause: "repair",
+				reason: decision.reason,
+				source,
+			});
 			report(scope, `Repaired ${label}${because}`);
 			reportChangedAssertions(scope, step.code, decision.code);
 
+			if (scope.delivery) {
+				return {
+					outcome: "rewind",
+					message: `Saved a repair for ${label}. ${provedOnRetry(scope.delivery)}`,
+				};
+			}
 			if (decision.page === "ready" && canContinue) {
 				return { outcome: "continue", code: decision.code };
 			}
@@ -204,6 +222,12 @@ async function applyDecision(
 			}
 			for (const { key } of named) {
 				await scope.store.delete(key);
+				await recordChange(scope, {
+					kind: "delete",
+					key,
+					cause: "regenerate",
+					reason: decision.reason,
+				});
 			}
 			const names = named.map(({ intent }) => `"${intent}"`).join(", ");
 			report(scope, `Regenerating ${names}${because}`);
@@ -214,6 +238,11 @@ async function applyDecision(
 		}
 
 		case "fail":
+			await recordChange(scope, {
+				kind: "diagnosis",
+				key: step?.key,
+				reason: decision.reason,
+			});
 			report(scope, `Left the steps alone after ${label} failed${because}`);
 			return { outcome: "failed" };
 	}

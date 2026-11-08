@@ -2,6 +2,8 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
+import type { ChangeRecord } from "playwright-intent";
+import type { ChangeSet } from "playwright-intent/reporter";
 import { WORKSPACES } from "../global-setup";
 import {
 	AGENT_CALLS_FILE,
@@ -14,6 +16,7 @@ import {
 	type ModelScript,
 } from "../project/scripted-model";
 import type { ShopVariant } from "../project/shop/app";
+import { FakeGitHub } from "./fake-github";
 import { readTrace, type TraceContents } from "./trace";
 
 const PROJECT_TEMPLATE = path.resolve(import.meta.dirname, "..", "project");
@@ -26,10 +29,14 @@ export interface RunOptions {
 	shop?: ShopVariant;
 	/** Runs as if on CI, which picks the project's `changes.ci`. */
 	ci?: boolean;
-	/** Uses `changes: allow()` for every run, instead of a local and CI pair. */
-	allowEverywhere?: boolean;
-	/** Uses a custom policy that generates steps but refuses diagnoses. */
-	generateOnly?: boolean;
+	/** Uses this policy for every run, instead of a local and CI pair. */
+	changes?: "allow" | "refuse" | "commit" | "propose" | "generate-only";
+	/** Passes `--shard` and adds a blob report for `mergeReports` to read. */
+	shard?: string;
+	/** Runs as a GitHub Actions job for this fake's pull request. */
+	github?: FakeGitHub;
+	/** Makes that pull request come from a fork. */
+	fromFork?: boolean;
 	/** Runs with a config that sets no `use.intent.store`. */
 	withoutStore?: boolean;
 	/** Runs without an agent, like a config that sets no model. */
@@ -57,6 +64,8 @@ export interface TestResultSummary {
 	snippets: string[];
 	/** The names of everything attached, across all attempts. */
 	attachments: string[];
+	/** The `intent-change` records, with the attempt that attached each. */
+	changes: (ChangeRecord & { attempt: number })[];
 	/** What the library reported about failures, across all attempts. */
 	notes: string[];
 	trace(attempt?: number): TraceContents;
@@ -118,20 +127,34 @@ export class Project {
 			`--retries=${options.retries ?? 0}`,
 			...(options.grep ? ["--grep", options.grep] : []),
 			...(options.timeout ? [`--timeout=${options.timeout}`] : []),
+			...(options.shard ? [`--shard=${options.shard}`] : []),
 			...(options.files ?? ["tests/checkout.spec.ts"]),
 		];
 
-		const { exitCode, output } = await spawnPlaywright(
-			args,
-			this.directory,
-			this.#environment(options),
+		return this.#runCli(args, options);
+	}
+
+	/** Merges the blob reports left by `shard` runs, like a CI merge job. */
+	async mergeReports(
+		options: Pick<RunOptions, "github"> = {},
+	): Promise<RunResult> {
+		return this.#runCli(
+			[
+				PLAYWRIGHT_CLI,
+				"merge-reports",
+				"-c",
+				"playwright.config.ts",
+				"blob-report",
+			],
+			options,
 		);
-		const report = await fs
-			.readFile(this.#path("report.json"), "utf8")
-			.catch(() => {
-				throw new Error(`Playwright wrote no report:\n${output}`);
-			});
-		return createRunResult(exitCode, output, JSON.parse(report));
+	}
+
+	/** What the reporter wrote in the last run. */
+	async changeSet(): Promise<ChangeSet> {
+		return JSON.parse(
+			await fs.readFile(this.#path("intent-changes.json"), "utf8"),
+		) as ChangeSet;
 	}
 
 	/** Everything in `.intent`, relative to it and sorted. */
@@ -177,6 +200,10 @@ export class Project {
 			.map((line) => JSON.parse(line) as AgentCall);
 	}
 
+	async writeFile(file: string, contents: string): Promise<void> {
+		await fs.writeFile(this.#path(file), contents);
+	}
+
 	async replaceInFile(file: string, from: string, to: string): Promise<void> {
 		const contents = await fs.readFile(this.#path(file), "utf8");
 		if (!contents.includes(from)) {
@@ -192,6 +219,40 @@ export class Project {
 		}
 	}
 
+	async #runCli(args: string[], options: RunOptions): Promise<RunResult> {
+		if (options.github) await this.#writePullRequestEvent(options);
+		const { exitCode, output } = await spawnPlaywright(
+			args,
+			this.directory,
+			this.#environment(options),
+		);
+		const report = await fs
+			.readFile(this.#path("report.json"), "utf8")
+			.catch(() => {
+				throw new Error(`Playwright wrote no report:\n${output}`);
+			});
+		return createRunResult(exitCode, output, JSON.parse(report));
+	}
+
+	async #writePullRequestEvent({ fromFork }: RunOptions): Promise<void> {
+		const repository = FakeGitHub.REPOSITORY;
+		await fs.writeFile(
+			this.#path("github-event.json"),
+			JSON.stringify({
+				pull_request: {
+					number: FakeGitHub.NUMBER,
+					user: { login: "someone" },
+					head: {
+						sha: FakeGitHub.HEAD_SHA,
+						ref: FakeGitHub.HEAD_REF,
+						repo: { full_name: fromFork ? "fork/shop" : repository },
+					},
+					base: { repo: { full_name: repository } },
+				},
+			}),
+		);
+	}
+
 	#path(...segments: string[]): string {
 		return path.join(this.directory, ...segments);
 	}
@@ -200,7 +261,7 @@ export class Project {
 		const env: NodeJS.ProcessEnv = {};
 		// Nothing about the outer run may leak into the run being tested.
 		for (const [name, value] of Object.entries(process.env)) {
-			if (!/^(TEST_|PW_|CI$|FORCE_COLOR$|NO_COLOR$)/.test(name)) {
+			if (!/^(TEST_|PW_|GITHUB_|CI$|FORCE_COLOR$|NO_COLOR$)/.test(name)) {
 				env[name] = value;
 			}
 		}
@@ -211,9 +272,21 @@ export class Project {
 			INTENT_E2E_AGENT_SCRIPT: this.#path("agent-script.json"),
 			SHOP_VARIANT: options.shop ?? "baseline",
 			...(options.ci && { CI: "true" }),
-			...(options.allowEverywhere && { INTENT_E2E_CHANGES: "allow" }),
-			...(options.generateOnly && { INTENT_E2E_CHANGES: "generate-only" }),
+			...(options.changes && { INTENT_E2E_CHANGES: options.changes }),
+			// Each shard would otherwise delete the blob before it.
+			...(options.shard && {
+				INTENT_E2E_BLOB: "1",
+				PWTEST_BLOB_DO_NOT_REMOVE: "1",
+			}),
 			...(options.withoutStore && { INTENT_E2E_NO_STORE: "1" }),
+			...(options.github && {
+				GITHUB_ACTIONS: "true",
+				GITHUB_API_URL: options.github.url,
+				GITHUB_EVENT_NAME: "pull_request",
+				GITHUB_EVENT_PATH: this.#path("github-event.json"),
+				GITHUB_TOKEN: "delivery-token",
+				GITHUB_WORKSPACE: this.directory,
+			}),
 			...(options.withoutAgent && { INTENT_E2E_NO_AGENT: "1" }),
 			...(options.failureContext && {
 				INTENT_E2E_FAILURE_CONTEXT: options.failureContext,
@@ -271,7 +344,7 @@ interface JsonSpec {
 			status: string;
 			errors: { message?: string }[];
 			error?: { snippet?: string };
-			attachments: { name: string; path?: string }[];
+			attachments: { name: string; path?: string; body?: string }[];
 			annotations?: { type: string; description?: string }[];
 		}[];
 	}[];
@@ -302,6 +375,20 @@ function createRunResult(
 				snippets: test.results.flatMap((result) => result.error?.snippet ?? []),
 				attachments: test.results.flatMap((result) =>
 					result.attachments.map((attachment) => attachment.name),
+				),
+				changes: test.results.flatMap((result, attempt) =>
+					result.attachments.flatMap((attachment) =>
+						attachment.name === "intent-change" && attachment.body
+							? [
+									{
+										attempt,
+										...JSON.parse(
+											Buffer.from(attachment.body, "base64").toString(),
+										),
+									},
+								]
+							: [],
+					),
 				),
 				notes: test.results.flatMap((result) =>
 					(result.annotations ?? []).flatMap((annotation) =>

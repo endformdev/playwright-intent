@@ -32,6 +32,18 @@
 			"require": "./dist/index.cjs",
 			"default": "./dist/index.mjs"
 		},
+		"./file-store": {
+			"types": "./dist/file-store.d.mts",
+			"import": "./dist/file-store.mjs",
+			"require": "./dist/file-store.cjs",
+			"default": "./dist/file-store.mjs"
+		},
+		"./reporter": {
+			"types": "./dist/reporter.d.mts",
+			"import": "./dist/reporter.mjs",
+			"require": "./dist/reporter.cjs",
+			"default": "./dist/reporter.mjs"
+		},
 		"./package.json": "./package.json"
 	},
 	"scripts": {

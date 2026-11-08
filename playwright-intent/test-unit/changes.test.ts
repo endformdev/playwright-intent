@@ -3,12 +3,19 @@ import { IntentChangeRejectedError } from "../src/errors";
 import {
 	allow,
 	type Changes,
+	commit,
+	deliveryOf,
+	propose,
 	refuse,
 	resolveChangePolicy,
 	type StepChange,
 } from "../src/store/changes";
 
-const change: StepChange = { type: "generate", test: "checkout" };
+const change: StepChange = {
+	type: "generate",
+	test: "checkout",
+	retriesLeft: 1,
+};
 const pair: Changes = { local: allow(), ci: refuse() };
 
 test("a pair picks by the CI variable", () => {
@@ -37,4 +44,21 @@ test("a custom function decides permission under the name custom", () => {
 
 	expect(policy.name).toBe("custom");
 	expect(check).toHaveBeenCalledWith(change);
+});
+
+test.each([commit, propose])(
+	"%o needs a retry left to prove a change",
+	(policy) => {
+		expect(() => policy().check(change)).not.toThrow();
+		expect(() => policy().check({ ...change, retriesLeft: 0 })).toThrow(
+			IntentChangeRejectedError,
+		);
+	},
+);
+
+test("only commit and propose deliver changes", () => {
+	expect(deliveryOf(commit())).toBe("commit");
+	expect(deliveryOf(propose())).toBe("propose");
+	expect(deliveryOf(allow())).toBeNull();
+	expect(deliveryOf(refuse())).toBeNull();
 });

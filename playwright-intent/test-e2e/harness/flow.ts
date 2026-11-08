@@ -1,4 +1,5 @@
 import { test as base } from "@playwright/test";
+import { FakeGitHub } from "./fake-github";
 import { Project } from "./project";
 
 export { expect } from "@playwright/test";
@@ -6,6 +7,7 @@ export { expect } from "@playwright/test";
 export interface FlowFixtures {
 	/** An ESM project with the default store. */
 	project: Project;
+	github: FakeGitHub;
 	/** For the rare flow that needs a differently set up project. */
 	createProject(options: {
 		moduleType?: "esm" | "cjs";
@@ -33,6 +35,13 @@ export const flow = base.extend<FlowFixtures>({
 		if (testInfo.status === testInfo.expectedStatus) {
 			await Promise.all(created.map((project) => project.cleanUp()));
 		}
+	},
+
+	// oxlint-disable-next-line no-empty-pattern
+	github: async ({}, use) => {
+		const github = await FakeGitHub.start();
+		await use(github);
+		await github.close();
 	},
 
 	project: async ({ createProject }, use) => {

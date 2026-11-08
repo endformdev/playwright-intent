@@ -6,6 +6,8 @@ export default defineConfig({
 	},
 	entry: {
 		index: "./src/index",
+		"file-store": "./src/store/file-store",
+		reporter: "./src/reporter/reporter",
 	},
 	fixedExtension: true,
 	format: ["esm", "cjs"],
