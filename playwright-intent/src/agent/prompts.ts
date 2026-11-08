@@ -203,7 +203,7 @@ export const TOOL_TEXT = {
 const MAX_CONSOLE_LINES = 20;
 
 export function describeTask(task: GenerateTask): string {
-	const sections = [
+	return [
 		`Step: ${task.intent}`,
 		`Test: ${task.testTitle}`,
 		task.variableNames.length > 0
@@ -213,13 +213,7 @@ export function describeTask(task: GenerateTask): string {
 			? `Steps already done in this test:\n${task.previousSteps.map((step) => `- ${step}`).join("\n")}`
 			: "Steps already done in this test: none",
 		`Test file ${task.testFile.path}, with this step marked ">>":\n${markLine(task.testFile.source, task.testFile.line)}`,
-	];
-	if (task.previousFailure) {
-		sections.push(
-			`An earlier attempt failed.\nCode:\n${task.previousFailure.code}\nError:\n${task.previousFailure.error}`,
-		);
-	}
-	return sections.join("\n\n");
+	].join("\n\n");
 }
 
 export function describeFailure(task: DiagnoseTask): string {
@@ -235,8 +229,8 @@ export function describeFailure(task: DiagnoseTask): string {
 		steps.length > 0
 			? `Steps that passed in this test:\n\n${steps.join("\n\n")}`
 			: "No other steps have passed in this test.",
-		task.regeneratedSteps.length > 0
-			? `Already regenerated after an earlier failure, so doing that again probably won't help:\n${task.regeneratedSteps.map((step) => `- ${step}`).join("\n")}`
+		task.generatedSteps.length > 0
+			? `Generated during this attempt, so regenerating them probably won't help:\n${task.generatedSteps.map((step) => `- ${step}`).join("\n")}`
 			: "",
 		task.extraContext ? `What else we know:\n${task.extraContext}` : "",
 		`Test file ${task.testFile.path}${task.testFile.line ? ', with the step marked ">>"' : ""}:\n${markLine(task.testFile.source, task.testFile.line)}`,

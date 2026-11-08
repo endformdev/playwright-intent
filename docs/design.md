@@ -84,13 +84,13 @@ Configuration lives only in `playwright.config.ts`, under `use.intent`. `PW_INTE
 
 Retries are the only rewind, because a fixture can't restart a test. In `changed` mode the agent diagnoses each failure on the live page and returns one decision:
 
-| Decision          | Cache                                  | Test                           |
-| ----------------- | -------------------------------------- | ------------------------------ |
-| `repair`, `ready` | Replaces the step                      | Continues                      |
-| `repair`, `dirty` | Replaces the step                      | Fails, and a retry replays it  |
-| `regenerate`      | Moves named steps to `.intent/.failed` | Fails, and a retry redoes them |
-| `rerun`           | No change                              | Fails                          |
-| `fail`            | No change                              | Fails with the diagnosis       |
+| Decision          | Cache               | Test                           |
+| ----------------- | ------------------- | ------------------------------ |
+| `repair`, `ready` | Replaces the step   | Continues                      |
+| `repair`, `dirty` | Replaces the step   | Fails, and a retry replays it  |
+| `regenerate`      | Deletes named steps | Fails, and a retry redoes them |
+| `rerun`           | No change           | Fails                          |
+| `fail`            | No change           | Fails with the diagnosis       |
 
 `use.intent.context` adds text to the diagnosis, like Endform's failure history.
 
@@ -102,7 +102,7 @@ The library enforces these limits, whatever the agent asks for:
 - `regenerate` can only touch steps that ran in the current test.
 - Failures outside a step can't `repair`. They're diagnosed in the fixture's teardown, along with test timeouts inside a step, so these can only prepare the next attempt.
 
-`.intent/.failed/<step>.json` keeps the old code and error, which the next generation receives as `previousFailure`. It's removed once the step has been generated again. In `changed` mode, a replayed step gets a 15 second action timeout if `use.actionTimeout` isn't set, so a stale locator doesn't use up the whole test timeout.
+Each diagnosis is told which steps its attempt generated, so it doesn't regenerate them again. That's kept in memory, so nothing about a failure is stored. In `changed` mode, a replayed step gets a 15 second action timeout if `use.actionTimeout` isn't set, so a stale locator doesn't use up the whole test timeout.
 
 A repair that changes a step's assertions is listed in the run output, but isn't blocked.
 

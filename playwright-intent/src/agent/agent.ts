@@ -67,10 +67,7 @@ export interface StepTask {
 	limits: { maxTurns: number; timeoutMs: number };
 }
 
-export interface GenerateTask extends StepTask {
-	/** Code from an earlier attempt that failed, and why. */
-	previousFailure?: { code: string; error: string };
-}
+export type GenerateTask = StepTask;
 
 /** `transcript` is attached to the test, to show how the agent got there. */
 export type GenerateOutcome =
@@ -96,8 +93,8 @@ export interface DiagnoseTask extends StepTask {
 	pageUnchanged: boolean;
 	/** The code of the steps that finished before the failure. */
 	steps: { intent: string; code: string }[];
-	/** Steps this attempt generated after an earlier failure. */
-	regeneratedSteps: string[];
+	/** Steps this attempt generated. */
+	generatedSteps: string[];
 	/** Text returned by `use.intent.context`. */
 	extraContext?: string;
 }
@@ -105,7 +102,7 @@ export interface DiagnoseTask extends StepTask {
 export type FailureDecision =
 	/** Only offered when `location` is `step`. */
 	| { action: "repair"; code: string; page: "ready" | "dirty"; reason?: string }
-	/** Move these steps from this test aside, and redo them on the retry. */
+	/** Delete these steps from this test, and redo them on the retry. */
 	| { action: "regenerate"; steps: string[]; reason?: string }
 	/** Looks like a one-off. Leave the cache alone. */
 	| { action: "rerun"; reason: string }
