@@ -3,7 +3,7 @@ import { MockLanguageModelV4 } from "ai/test";
 
 /** One model response: the tool it calls next. */
 export interface ModelTurn {
-	tool: "run" | "look" | "finish" | "give_up";
+	tool: "run" | "look" | "finish" | "give_up" | "fail";
 	input: Record<string, unknown>;
 }
 
@@ -41,10 +41,13 @@ function countCalls(): number {
  */
 export function createScriptedModel(script: ModelScript) {
 	return new MockLanguageModelV4({
-		doGenerate: async ({ prompt }) => {
+		doGenerate: async ({ prompt, tools }) => {
 			const index = countCalls();
 			const turn = script.turns[index];
-			fs.appendFileSync(MODEL_CALLS_FILE, `${JSON.stringify(prompt)}\n`);
+			fs.appendFileSync(
+				MODEL_CALLS_FILE,
+				`${JSON.stringify({ prompt, tools })}\n`,
+			);
 			if (!turn) throw new Error(`Unscripted model turn ${index}.`);
 
 			return {

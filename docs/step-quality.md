@@ -52,7 +52,7 @@ Measured by `trials/scan_steps.py` on the steps each run changed. The second run
 
 The 18 failure scenarios changed 7 more steps after the rules, and none were flagged. Every run in both tables passed, so none of this shows up in pass rates.
 
-The rules that made the difference are in `STEP_CODE_RULES` in `playwright-intent/src/agent/ai-sdk-agent.ts`, plus the repair instruction to write for where the step starts, not for the page in front of the agent.
+The rules that made the difference are in `STEP_CODE_RULES` in `playwright-intent/src/agent/prompts.ts`, plus the repair instruction to write for where the step starts, not for the page in front of the agent. That instruction is now in the `repair` tool's description.
 
 ## Why a pass misses this
 

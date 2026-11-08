@@ -4,7 +4,7 @@ import type { AgentSession, RunResult } from "./agent";
 import { observePage } from "./observe";
 
 /** Keeps a wrong guess from using up the agent's time. */
-const EXPLORATION_ACTION_TIMEOUT_MS = 5_000;
+export const EXPLORATION_ACTION_TIMEOUT_MS = 5_000;
 
 export interface SessionOptions {
 	/** `use.actionTimeout`, restored after each run. */

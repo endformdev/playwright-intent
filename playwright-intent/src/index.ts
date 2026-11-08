@@ -17,6 +17,8 @@ export type {
 	Observation,
 	RunResult,
 } from "./agent/agent";
+export type { IntentPrompts } from "./agent/prompts";
+export { defaultPrompts } from "./agent/prompts";
 export * from "./errors";
 export type {
 	Ai,
