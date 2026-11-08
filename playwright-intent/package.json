@@ -39,14 +39,15 @@
 		"dev": "tsdown --watch",
 		"test:e2e": "pnpm build && pnpm playwright test"
 	},
+	"dependencies": {
+		"ai": "catalog:"
+	},
 	"peerDependencies": {
-		"@playwright/test": ">=1.60.0",
-		"ai": "^7.0.0"
+		"@playwright/test": ">=1.60.0"
 	},
 	"devDependencies": {
 		"@playwright/test": "catalog:",
 		"@types/node": "catalog:",
-		"ai": "catalog:",
 		"tsdown": "catalog:",
 		"typescript": "catalog:"
 	},
@@ -54,10 +55,5 @@
 	"module": "./dist/index.mjs",
 	"engines": {
 		"node": ">=24.0.0"
-	},
-	"peerDependenciesMeta": {
-		"ai": {
-			"optional": true
-		}
 	}
 }

@@ -28,7 +28,11 @@ export interface IntentOptions {
 	mode?: IntentMode;
 	/** The AI SDK model used by the built-in agent. */
 	model?: LanguageModel;
-	/** Replaces the built-in agent, and takes priority over `model`. */
+	/**
+	 * Replaces the built-in agent, and takes priority over `model`.
+	 *
+	 * @internal Only for this library's own tests. Not a supported API.
+	 */
 	agent?: IntentAgent;
 	/**
 	 * Replaces the built-in agent's instructions. Build on `defaultPrompts` to

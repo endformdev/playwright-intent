@@ -27,7 +27,7 @@ test("checkout", async ({ page, ai }) => {
 
 - **Intent:** the text you pass to `ai.do`. Use `{name}` for anything that varies, and pass the values as the second argument.
 - **Step:** the TypeScript generated for an intent, saved as a file you can read and review. Changing an intent generates a new step.
-- **Agent:** explores the live page and writes the step. It sees your test file, but not the values you pass to `ai.do`.
+- **Agent:** explores the live page and writes the step. It sees your test file and the page it's working on. Values you pass to `ai.do` aren't included in its instructions, but they can reach it through page content once they've been typed or displayed.
 - **Mode:** decides when the agent may run.
 - **Store:** where steps live, and what happens when they change.
 
@@ -73,9 +73,42 @@ Everything lives under `use.intent` in `playwright.config.ts`.
 | `model`   | The [AI SDK](https://ai-sdk.dev) model used to write steps    |
 | `mode`    | When the agent may run. Defaults to `missing`                 |
 | `prompts` | Changes what the built-in agent is told                       |
-| `agent`   | Replaces the built-in agent                                   |
 | `context` | Adds your own text to a failure diagnosis                     |
 | `limits`  | The agent's `maxTurns` and `timeoutMs`                        |
+
+## Models
+
+`model` takes any [AI SDK](https://ai-sdk.dev) model that supports tool calling. A string goes through Vercel AI Gateway. To use anything else, install its provider and pass the model:
+
+```ts
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+
+const openrouter = createOpenRouter({
+	apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+// In use.intent:
+model: openrouter.chat("openai/gpt-6-luna"),
+```
+
+For LiteLLM, Ollama, or a company proxy, use an OpenAI-compatible provider:
+
+```ts
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+
+const proxy = createOpenAICompatible({
+	name: "proxy",
+	baseURL: "http://localhost:4000/v1",
+	apiKey: process.env.PROXY_API_KEY,
+});
+
+// In use.intent:
+model: proxy("gpt-6-luna"),
+```
+
+Providers that wrap a CLI, like Codex CLI or Claude Code, run their own tools instead of ours, so they won't work.
+
+So far, generated steps have only been tried with `openai/gpt-6-luna`.
 
 ## Modes
 
@@ -123,7 +156,7 @@ Dropdowns in this app only open after their label is clicked.`,
 
 Or pass your own text to replace a prompt completely. The agent's tools stay the same and explain how to use them, so a prompt only needs to say what good work looks like.
 
-Changing a prompt doesn't change steps you've already saved. `PW_INTENT=all` regenerates them, so keep them in Git first. `prompts` can't be combined with `agent`.
+Changing a prompt doesn't change steps you've already saved. `PW_INTENT=all` regenerates them, so keep them in Git first.
 
 ## Project status
 
