@@ -112,7 +112,7 @@ async function diagnoseFailure(
 	let decision: DiagnoseOutcome;
 	try {
 		const intent = step?.intent ?? "";
-		await scope.onChange({
+		await scope.changePolicy.check({
 			type: "diagnose",
 			test: scope.testTitle,
 			...(step && { intent }),

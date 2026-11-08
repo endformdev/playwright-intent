@@ -29,10 +29,10 @@ export interface RunOptions {
 	configMode?: IntentMode;
 	retries?: number;
 	shop?: ShopVariant;
-	/** Runs as if on CI, which picks the project's `onChange.ci`. */
+	/** Runs as if on CI, which picks the project's `changes.ci`. */
 	ci?: boolean;
-	/** Uses `onChange: keep()` for every run, instead of a local and CI pair. */
-	keepEverywhere?: boolean;
+	/** Uses `changes: allow()` for every run, instead of a local and CI pair. */
+	allowEverywhere?: boolean;
 	/** Runs with a config that sets no `use.intent.store`. */
 	withoutStore?: boolean;
 	/** Runs without an agent, like a config that sets no model. */
@@ -218,7 +218,7 @@ export class Project {
 				INTENT_E2E_CONFIG_MODE: options.configMode,
 			}),
 			...(options.ci && { CI: "true" }),
-			...(options.keepEverywhere && { INTENT_E2E_ON_CHANGE: "keep" }),
+			...(options.allowEverywhere && { INTENT_E2E_CHANGES: "allow" }),
 			...(options.withoutStore && { INTENT_E2E_NO_STORE: "1" }),
 			...(options.withoutAgent && { INTENT_E2E_NO_AGENT: "1" }),
 			...(options.failureContext && {

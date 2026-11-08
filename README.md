@@ -42,11 +42,11 @@ npm install -D playwright-intent
 ```ts
 // playwright.config.ts
 import {
+	allow,
 	defineConfig,
-	fail,
 	fileStore,
 	type IntentUseOptions,
-	keep,
+	refuse,
 } from "playwright-intent";
 
 export default defineConfig<IntentUseOptions>({
@@ -54,7 +54,7 @@ export default defineConfig<IntentUseOptions>({
 		intent: {
 			model: "openai/gpt-6-luna",
 			store: fileStore({
-				onChange: { local: keep(), ci: fail() },
+				changes: { local: allow(), ci: refuse() },
 			}),
 		},
 	},
@@ -125,17 +125,19 @@ The `PW_INTENT` environment variable overrides `mode` for one run.
 
 `fileStore` keeps steps in `.intent` beside your Playwright config.
 
-A store always needs `onChange`, because a change that nobody keeps is lost. A step generated on a CI machine disappears with it, unless you've decided what should happen. `onChange` runs before the agent starts:
+A store always needs `changes`, because a change that nobody keeps is lost. A step generated on a CI machine disappears with it, unless you've decided what should happen. `changes` is a policy checked before the agent starts:
 
-- `keep()` lets the change happen, and leaves it on disk for you to review and commit.
-- `fail()` fails the test instead, without calling the model.
+- `allow()` lets the change happen, and leaves it on disk for you to review and commit.
+- `refuse()` fails the test instead, without calling the model.
 
-Pass one function to use it everywhere, or `{ local, ci }` to choose by whether the `CI` environment variable is set:
+Pass one policy to use it everywhere, or `{ local, ci }` to choose by whether the `CI` environment variable is set:
 
 ```ts
-fileStore({ onChange: { local: keep(), ci: fail() } });
-fileStore({ onChange: keep() });
+fileStore({ changes: { local: allow(), ci: refuse() } });
+fileStore({ changes: allow() });
 ```
+
+A policy can also be your own function, which throws to stop the change.
 
 ## Prompts
 

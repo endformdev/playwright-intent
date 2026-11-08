@@ -36,12 +36,14 @@ Code always runs from disk, because Playwright reads the file for snippets and t
 
 ## Storing steps
 
-`use.intent.store` is required, and a store can't be set up without `onChange`. A generated step is only useful if something keeps it, and that depends on where the run happens, so nobody should get it by default.
+`use.intent.store` is required, and a store can't be set up without `changes`. A generated step is only useful if something keeps it, and that depends on where the run happens, so nobody should get it by default.
 
-`onChange` is one function, or `{ local, ci }` chosen by the `CI` environment variable. It's a gate: it runs in the worker just before the agent starts, whether generating, diagnosing, or clearing steps for `all`. Throwing stops the change, so nothing is spent on the model.
+`changes` is one policy, or `{ local, ci }` chosen by the `CI` environment variable. It's a gate: it's checked in the worker just before the agent starts, whether generating, diagnosing, or clearing steps for `all`. During a diagnosis, the agent may then change nothing at all. Throwing stops the change, so nothing is spent on the model.
 
-- `keep()` allows the change, and it stays on disk to review and commit.
-- `fail()` throws `IntentChangeRejectedError`. During a diagnosis the test keeps its own error, and the rejection is reported.
+- `allow()` lets the change happen, and it stays on disk to review and commit.
+- `refuse()` throws `IntentChangeRejectedError`. During a diagnosis the test keeps its own error, and the rejection is reported.
+
+Built-in policies are named values rather than plain functions, so the library knows which one is active and can tell a reporter. A custom function can still decide permission, but it can't deliver anything.
 
 A `{ local, ci }` pair keeps CI from being forgotten. A job that needs something else, like a nightly self-heal, can use plain JS in the config.
 
@@ -78,7 +80,7 @@ The first normal replay proves a generated step works.
 
 `all` clears a test's steps when its first attempt starts, so everything is a miss. A retry replays what the run has already generated, and generates the rest. If an attempt fails early, the steps it didn't reach stay cleared until something generates them, so `all` needs Git or another way back.
 
-Configuration lives only in `playwright.config.ts`, under `use.intent`. `PW_INTENT` overrides the mode for one run. With neither set, the mode is `missing`. CI has no default of its own, because `onChange` decides whether steps can change there.
+Configuration lives only in `playwright.config.ts`, under `use.intent`. `PW_INTENT` overrides the mode for one run. With neither set, the mode is `missing`. CI has no default of its own, because `changes` decides whether steps can change there.
 
 ## Failures
 
@@ -129,7 +131,7 @@ See [open-questions.md](open-questions.md) for postponed questions, and [step-qu
 
 ### Run-level change handling
 
-`onChange` runs per change in a worker, so it can't see a whole run. A pull request comment needs a reporter:
+The `changes` policy is checked per change in a worker, so it can't see a whole run. A pull request comment needs a reporter:
 
 - Workers attach each change to its test, and the reporter collects them in `onTestEnd` and delivers them in `onEnd`.
 - `defineConfig` from `playwright-intent` will be required, because it's how we add global hooks like this reporter without a second config line. It's a plain re-export until the first hook needs it. The fixture can then read `testInfo.config.reporter` and fail loudly if it's missing.
