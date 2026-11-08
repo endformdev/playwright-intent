@@ -51,6 +51,8 @@ Playwright's types make every `use` key optional, so the fixture also throws `In
 
 The library owns the browser, cache and limits. An `IntentAgent` observes, runs code through its session, and returns one outcome. Exploration is never saved.
 
+Users choose a model, not an agent. People should be able to bring their plan or provider, but not their own agent loop, so `use.intent.agent` is only a hook for this library's tests.
+
 The built-in agent takes any AI SDK model, so `use.intent.model` can be a provider's model or a Vercel AI Gateway id like `"openai/gpt-6-luna"`. It explores with `run` and `look`, then ends with `finish` or `give_up`. Each generation attaches a transcript to the test. Observations list the page's test ids, because the ARIA snapshot doesn't show them.
 
 Everything the model reads is in `src/agent/prompts.ts`. The two prompts, `generate` and `diagnose`, say what good work looks like. They're exported as `defaultPrompts`, and `use.intent.prompts` can extend or replace them. The tools can't change, so how to use them correctly lives in the tool descriptions, where a custom prompt can't remove it. A prompt can't get around the limits the library enforces, but it can produce worse code.
@@ -120,7 +122,9 @@ See [open-questions.md](open-questions.md) for postponed questions, and [step-qu
 - Sharing steps between tests, and separate caches per browser project.
 - Pruning orphaned files, and letting steps import helpers.
 - A CLI, a summary reporter, `-u` integration, and type-checking step files.
-- `ai.expect`, diagnosis in CI, and external agents.
+- `ai.expect` and diagnosis in CI.
+- Sending screenshots to OpenAI-compatible providers. By default they stringify tool results, so `look` would send base64 text unless `supportsMultiPartToolContent` is set.
+- Parallel tool calls on providers other than OpenAI, where a model could call `run` and `finish` in the same turn.
 - Replacing a step mid-process. Node caches each import, so a test that repeats in the same worker after a repair, with `--repeat-each`, replays the old code until the next process.
 
 ### Run-level change handling

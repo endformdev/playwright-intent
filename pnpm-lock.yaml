@@ -43,6 +43,10 @@ importers:
         version: 4.1.7(@types/node@25.9.9)(vite@8.3.4(@types/node@25.9.9))
 
   playwright-intent:
+    dependencies:
+      ai:
+        specifier: 'catalog:'
+        version: 7.0.163(zod@4.6.7)
     devDependencies:
       '@playwright/test':
         specifier: 'catalog:'
@@ -50,9 +54,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.9
-      ai:
-        specifier: 'catalog:'
-        version: 7.0.163(zod@4.6.7)
       tsdown:
         specifier: 'catalog:'
         version: 0.22.14(typescript@6.0.3)

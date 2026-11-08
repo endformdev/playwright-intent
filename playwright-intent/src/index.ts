@@ -5,6 +5,7 @@ export * from "@playwright/test";
 
 export const test = createIntentTest(base);
 
+// The agent types are only exported for this library's e2e scripted agent.
 export type {
 	AgentSession,
 	DiagnoseTask,

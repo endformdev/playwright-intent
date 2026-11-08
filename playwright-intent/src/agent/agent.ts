@@ -3,8 +3,8 @@
  *
  * The library owns the browser, the cache and the safety limits. An agent only
  * observes, runs code through its session, and returns one outcome. The
- * built-in AI SDK agent, the scripted e2e agent and any future external agent
- * all implement this same interface.
+ * built-in AI SDK agent and the scripted e2e agent both implement this
+ * interface. It isn't a supported way for users to bring their own agent.
  */
 export interface IntentAgent {
 	/** A step has no code yet. The session is on the page before the step. */
