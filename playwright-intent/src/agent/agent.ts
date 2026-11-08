@@ -102,7 +102,7 @@ export type FailureDecision =
 	| { action: "repair"; code: string; page: "ready" | "dirty"; reason?: string }
 	/** Delete these steps from this test, and redo them on the retry. */
 	| { action: "regenerate"; steps: string[]; reason?: string }
-	/** A real bug or a one-off, so the steps aren't at fault. Leave them alone. */
+	/** A real bug, a one-off, or the agent never answered. Leave the cache alone. */
 	| { action: "fail"; reason: string };
 
 export type DiagnoseOutcome = FailureDecision & { transcript?: string };

@@ -3,13 +3,16 @@ import { MockLanguageModelV4 } from "ai/test";
 
 /** One model response: the tool it calls next. */
 export interface ModelTurn {
-	tool: "run" | "look" | "finish" | "give_up" | "fail";
+	tool: "run" | "look" | "finish" | "fail";
 	input: Record<string, unknown>;
 }
 
+/** A model call that never gets as far as answering. */
+export type ModelFailure = { throws: string } | { hangs: true };
+
 export interface ModelScript {
-	turns: ModelTurn[];
-	maxTurns?: number;
+	turns: (ModelTurn | ModelFailure)[];
+	limits?: { maxTurns?: number; timeoutMs?: number };
 }
 
 export const MODEL_SCRIPT_FILE = "model-script.json";
@@ -41,7 +44,7 @@ function countCalls(): number {
  */
 export function createScriptedModel(script: ModelScript) {
 	return new MockLanguageModelV4({
-		doGenerate: async ({ prompt, tools }) => {
+		doGenerate: async ({ prompt, tools, abortSignal }) => {
 			const index = countCalls();
 			const turn = script.turns[index];
 			fs.appendFileSync(
@@ -49,6 +52,14 @@ export function createScriptedModel(script: ModelScript) {
 				`${JSON.stringify({ prompt, tools })}\n`,
 			);
 			if (!turn) throw new Error(`Unscripted model turn ${index}.`);
+			if ("throws" in turn) throw new Error(turn.throws);
+			if ("hangs" in turn) {
+				return new Promise<never>((_, reject) => {
+					abortSignal?.addEventListener("abort", () =>
+						reject(abortSignal.reason),
+					);
+				});
+			}
 
 			return {
 				content: [

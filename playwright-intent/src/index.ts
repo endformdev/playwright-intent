@@ -35,7 +35,13 @@ export type {
 } from "./options";
 export type { StepVariables } from "./step/intent-text";
 export type { StepContext } from "./step/run-step";
+export type {
+	ChangeCheck,
+	ChangePolicy,
+	Changes,
+	NamedChangePolicy,
+	StepChange,
+} from "./store/changes";
+export { allow, refuse } from "./store/changes";
 export { fileStore } from "./store/file-store";
-export type { ChangeHandler, OnChange, StepChange } from "./store/on-change";
-export { fail, keep } from "./store/on-change";
 export type { IntentStore, IntentStoreProvider } from "./store/store";

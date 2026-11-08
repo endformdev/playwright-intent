@@ -36,12 +36,14 @@ Code always runs from disk, because Playwright reads the file for snippets and t
 
 ## Storing steps
 
-`use.intent.store` is required, and a store can't be set up without `onChange`. A generated step is only useful if something keeps it, and that depends on where the run happens, so nobody should get it by default.
+`use.intent.store` is required, and a store can't be set up without `changes`. A generated step is only useful if something keeps it, and that depends on where the run happens, so nobody should get it by default.
 
-`onChange` is one function, or `{ local, ci }` chosen by the `CI` environment variable. It's a gate: it runs in the worker just before the agent starts, whether generating, diagnosing, or clearing steps for `all`. Throwing stops the change, so nothing is spent on the model.
+`changes` is one policy, or `{ local, ci }` chosen by the `CI` environment variable. It's a gate: it's checked in the worker just before the agent starts, whether generating, diagnosing, or clearing steps for `all`. During a diagnosis, the agent may then change nothing at all. Throwing stops the change, so nothing is spent on the model.
 
-- `keep()` allows the change, and it stays on disk to review and commit.
-- `fail()` throws `IntentChangeRejectedError`. During a diagnosis the test keeps its own error, and the rejection is reported.
+- `allow()` lets the change happen, and it stays on disk to review and commit.
+- `refuse()` throws `IntentChangeRejectedError`. During a diagnosis the test keeps its own error, and the rejection is reported.
+
+Built-in policies are named values rather than plain functions, so the library knows which one is active and can tell a reporter. A custom function can still decide permission, but it can't deliver anything.
 
 A `{ local, ci }` pair keeps CI from being forgotten. A job that needs something else, like a nightly self-heal, can use plain JS in the config.
 
@@ -53,7 +55,7 @@ The library owns the browser, cache and limits. An `IntentAgent` observes, runs 
 
 Users choose a model, not an agent. People should be able to bring their plan or provider, but not their own agent loop, so `use.intent.agent` is only a hook for this library's tests.
 
-The built-in agent takes any AI SDK model, so `use.intent.model` can be a provider's model or a Vercel AI Gateway id like `"openai/gpt-6-luna"`. It explores with `run` and `look`, then ends with `finish` or `give_up`. Each generation attaches a transcript to the test. Observations list the page's test ids, because the ARIA snapshot doesn't show them.
+The built-in agent takes any AI SDK model, so `use.intent.model` can be a provider's model or a Vercel AI Gateway id like `"openai/gpt-6-luna"`. It explores with `run` and `look`, then ends with `finish` or `fail`. Each generation attaches a transcript to the test. Observations list the page's test ids, because the ARIA snapshot doesn't show them.
 
 Everything the model reads is in `src/agent/prompts.ts`. The two prompts, `generate` and `diagnose`, say what good work looks like. They're exported as `defaultPrompts`, and `use.intent.prompts` can extend or replace them. The tools can't change, so how to use them correctly lives in the tool descriptions, where a custom prompt can't remove it. A prompt can't get around the limits the library enforces, but it can produce worse code.
 
@@ -78,7 +80,7 @@ The first normal replay proves a generated step works.
 
 `all` clears a test's steps when its first attempt starts, so everything is a miss. A retry replays what the run has already generated, and generates the rest. If an attempt fails early, the steps it didn't reach stay cleared until something generates them, so `all` needs Git or another way back.
 
-Configuration lives only in `playwright.config.ts`, under `use.intent`. `PW_INTENT` overrides the mode for one run. With neither set, the mode is `missing`. CI has no default of its own, because `onChange` decides whether steps can change there.
+Configuration lives only in `playwright.config.ts`, under `use.intent`. `PW_INTENT` overrides the mode for one run. With neither set, the mode is `missing`. CI has no default of its own, because `changes` decides whether steps can change there.
 
 ## Failures
 
@@ -94,6 +96,8 @@ Retries are the only rewind, because a fixture can't restart a test. In `changed
 `use.intent.context` adds text to the diagnosis, like Endform's failure history.
 
 The agent's reasons appear in the run output and as `intent` annotations, and each diagnosis attaches a transcript. If the diagnosis itself fails, the test keeps its own error.
+
+Hitting the turn or time limit, or a model error, says nothing about the app, so the built-in agent ends with a `fail` that names the limit or error. While generating, the test fails with that reason and nothing goes on to diagnose it. During a diagnosis, the test keeps its own error. Either way, no steps change.
 
 The library enforces these limits, whatever the agent asks for:
 
@@ -128,7 +132,7 @@ See [open-questions.md](open-questions.md) for postponed questions, and [step-qu
 
 ### Run-level change handling
 
-`onChange` runs per change in a worker, so it can't see a whole run. A pull request comment needs a reporter:
+The `changes` policy is checked per change in a worker, so it can't see a whole run. A pull request comment needs a reporter:
 
 - Workers attach each change to its test, and the reporter collects them in `onTestEnd` and delivers them in `onEnd`.
 - `defineConfig` from `playwright-intent` will be required, because it's how we add global hooks like this reporter without a second config line. It's a plain re-export until the first hook needs it. The fixture can then read `testInfo.config.reporter` and fail loudly if it's missing.

@@ -35,14 +35,14 @@ const STEP_CODE_RULES = `- Use \`getByTestId\` when an element has a test id, be
 
 const GENERATE_PROMPT = `You turn one natural-language step of a Playwright test into code.
 
-You work on a real browser page, which is already where the test has left it. Use \`run\` to carry out the step for real, one action at a time. Then call \`finish\` with the final code. If the step can't be done, call \`give_up\`.
+You work on a real browser page, which is already where the test has left it. Use \`run\` to carry out the step for real, one action at a time. Then call \`finish\` with the final code. If the step can't be done, call \`fail\`.
 
 The code you finish with is saved and replayed in later test runs without you, on a fresh page, so:
 - Do exactly what the step says. The test file shows what happens around the step, so leave later work to it, and leave the page where the following code expects it.
 - End with an \`expect\` that proves this step happened. Leave the test's own assertions to the test, and don't copy values from the test file unless the step names them.
 ${STEP_CODE_RULES}
 
-If the app looks broken, or the step asks for something that isn't there, call \`give_up\` and say why. Don't work around it.`;
+If the app looks broken, or the step asks for something that isn't there, call \`fail\` and say why. Don't work around it.`;
 
 const DIAGNOSE_PROMPT = `A Playwright test just failed. You're on the real page it failed on, and you decide what happens next.
 
@@ -140,7 +140,7 @@ const RUN_SCHEMA = {
 	additionalProperties: false,
 } as const;
 
-const GIVE_UP_SCHEMA = {
+const FAIL_STEP_SCHEMA = {
 	type: "object",
 	properties: {
 		reason: { type: "string", description: "What stopped the step." },
@@ -176,9 +176,11 @@ export const TOOL_TEXT = {
 			"Saves the final code for this step. Ends the task. The code is replayed in later runs on a fresh page.",
 		schema: FINISH_SCHEMA,
 	},
-	give_up: {
-		description: "Stops without saving, because the step can't be done.",
-		schema: GIVE_UP_SCHEMA,
+	/** Offered as `fail` while writing a step. `fail` below is for a diagnosis. */
+	failStep: {
+		description:
+			"Stops without saving, because the step can't be done or the app is wrong.",
+		schema: FAIL_STEP_SCHEMA,
 	},
 	repair: {
 		description: `Replaces the failed step's code, after you've done the step on the page with \`run\`. Ends the task. The code replaces the whole step and is replayed in later runs, starting from where the previous step left the page. Write it for that starting point, not for the page in front of you. If the failed step left a menu open or a form half filled, that won't be there in a replay, so don't add anything to deal with it. Use \`page: "dirty"\` instead.`,

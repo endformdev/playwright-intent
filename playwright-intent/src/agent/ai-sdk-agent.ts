@@ -44,8 +44,8 @@ interface Run {
 }
 
 interface AgentRun {
-	/** The end tool the agent called, if it got that far. */
-	end: { name: string; input: unknown } | null;
+	/** The end tool the agent called, or a `fail` saying what stopped it. */
+	end: { name: string; input: unknown };
 	transcript: string[];
 }
 
@@ -103,34 +103,53 @@ async function runAgent(
 		),
 	};
 
-	const result = await generateText({
-		model,
-		instructions: run.instructions,
-		prompt: run.prompt,
-		tools,
-		toolChoice: "required",
-		stopWhen: isStepCount(run.maxTurns),
-		abortSignal: AbortSignal.timeout(run.timeoutMs),
-		providerOptions: { openai: { parallelToolCalls: false } },
+	const stop = (reason: string): AgentRun => {
+		transcript.push(`--- stopped\n${reason}`);
+		return { end: { name: "fail", input: { reason } }, transcript };
+	};
+	const timeout = AbortSignal.timeout(run.timeoutMs);
+	// The signal doesn't interrupt a tool, and `run` can execute code that hangs.
+	const timedOut = new Promise<never>((_, reject) => {
+		timeout.addEventListener("abort", () => reject(timeout.reason));
 	});
 
-	const { inputTokens, outputTokens } = result.totalUsage;
-	transcript.push(
-		`--- ${result.steps.length} turns, ${inputTokens} input tokens, ${outputTokens} output tokens`,
-	);
+	try {
+		const result = await Promise.race([
+			generateText({
+				model,
+				instructions: run.instructions,
+				prompt: run.prompt,
+				tools,
+				toolChoice: "required",
+				stopWhen: isStepCount(run.maxTurns),
+				abortSignal: timeout,
+				providerOptions: { openai: { parallelToolCalls: false } },
+			}),
+			timedOut,
+		]);
 
-	const call = result.toolCalls.find(
-		({ toolName }) => toolName in run.endTools,
-	);
-	if (call) {
+		const { inputTokens, outputTokens } = result.totalUsage;
+		transcript.push(
+			`--- ${result.steps.length} turns, ${inputTokens} input tokens, ${outputTokens} output tokens`,
+		);
+
+		const call = result.toolCalls.find(
+			({ toolName }) => toolName in run.endTools,
+		);
+		if (!call) {
+			return stop(`The agent didn't finish within ${run.maxTurns} turns.`);
+		}
 		transcript.push(
 			`--- ${call.toolName}\n${JSON.stringify(call.input, null, 2)}`,
 		);
+		return { end: { name: call.toolName, input: call.input }, transcript };
+	} catch (error) {
+		return stop(
+			timeout.aborted
+				? `The agent didn't finish within ${run.timeoutMs / 1_000} seconds.`
+				: `The model call failed: ${error instanceof Error ? error.message : String(error)}`,
+		);
 	}
-	return {
-		end: call ? { name: call.toolName, input: call.input } : null,
-		transcript,
-	};
 }
 
 async function generate(
@@ -144,26 +163,19 @@ async function generate(
 		prompt: describeTask(task),
 		maxTurns: task.limits.maxTurns,
 		timeoutMs: task.limits.timeoutMs,
-		endTools: { finish: TOOL_TEXT.finish, give_up: TOOL_TEXT.give_up },
+		endTools: { finish: TOOL_TEXT.finish, fail: TOOL_TEXT.failStep },
 	});
 	const transcript = lines.join("\n");
 
-	if (end?.name === "finish") {
+	if (end.name === "finish") {
 		const { code, page } = end.input as {
 			code: string;
 			page: "ready" | "dirty";
 		};
 		return { status: "solved", code, page, transcript };
 	}
-	if (end?.name === "give_up") {
-		const { reason } = end.input as { reason: string };
-		return { status: "failed", message: reason, transcript };
-	}
-	return {
-		status: "failed",
-		message: `The agent didn't finish within ${task.limits.maxTurns} turns.`,
-		transcript,
-	};
+	const { reason } = end.input as { reason: string };
+	return { status: "failed", message: reason, transcript };
 }
 
 async function diagnose(
@@ -186,7 +198,7 @@ async function diagnose(
 	});
 	const transcript = lines.join("\n");
 
-	switch (end?.name) {
+	switch (end.name) {
 		case "repair": {
 			const input = end.input as {
 				code: string;
@@ -199,15 +211,9 @@ async function diagnose(
 			const input = end.input as { steps: string[]; reason: string };
 			return { action: "regenerate", ...input, transcript };
 		}
-		case "fail": {
+		default: {
 			const { reason } = end.input as { reason: string };
 			return { action: "fail", reason, transcript };
 		}
-		default:
-			return {
-				action: "fail",
-				reason: `The agent didn't decide within ${task.limits.maxTurns} turns.`,
-				transcript,
-			};
 	}
 }

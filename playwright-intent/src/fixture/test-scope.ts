@@ -13,7 +13,7 @@ import {
 } from "../options";
 import type { RunningStep } from "../step/handle-failure";
 import { INTENT_DIRECTORY } from "../step/step-path";
-import { type ChangeHandler, resolveChangeHandler } from "../store/on-change";
+import { type NamedChangePolicy, resolveChangePolicy } from "../store/changes";
 import type { IntentStore } from "../store/store";
 
 /** Everything the steps of one test attempt share. */
@@ -21,7 +21,7 @@ export interface TestScope {
 	mode: IntentMode;
 	agent: IntentAgent | null;
 	store: IntentStore;
-	onChange: ChangeHandler;
+	changePolicy: NamedChangePolicy;
 	limits: IntentLimits;
 	session: SessionOptions;
 	testInfo: TestInfo;
@@ -56,10 +56,10 @@ export function createTestScope(
 	session: SessionOptions,
 ): TestScope {
 	// `use` is partial in Playwright's types, so `intent` can be left out.
-	if (!options?.store?.onChange) {
+	if (!options?.store?.changes) {
 		throw new IntentConfigError(
-			"Set use.intent.store in playwright.config.ts, including onChange: " +
-				"store: fileStore({ onChange: { local: keep(), ci: fail() } })",
+			"Set use.intent.store in playwright.config.ts, including changes: " +
+				"store: fileStore({ changes: { local: allow(), ci: refuse() } })",
 		);
 	}
 	if (options.agent && options.prompts) {
@@ -81,7 +81,7 @@ export function createTestScope(
 			options.agent ??
 			(options.model ? createAiSdkAgent(options.model, options.prompts) : null),
 		store: options.store.open(intentRoot),
-		onChange: resolveChangeHandler(options.store.onChange),
+		changePolicy: resolveChangePolicy(options.store.changes),
 		limits: { ...DEFAULT_LIMITS, ...options.limits },
 		session,
 		testInfo,
