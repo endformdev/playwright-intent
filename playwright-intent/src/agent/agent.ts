@@ -93,8 +93,6 @@ export interface DiagnoseTask extends StepTask {
 	pageUnchanged: boolean;
 	/** The code of the steps that finished before the failure. */
 	steps: { intent: string; code: string }[];
-	/** Steps this attempt generated. */
-	generatedSteps: string[];
 	/** Text returned by `use.intent.context`. */
 	extraContext?: string;
 }

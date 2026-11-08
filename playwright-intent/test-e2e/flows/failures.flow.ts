@@ -409,8 +409,6 @@ flow.describe("failures in changed mode", () => {
 
 		expect(run.test(CHECKOUT_TEST).attempts).toEqual(["failed", "failed"]);
 		expect(run.exitCode).toBe(1);
-		const [, second] = await diagnoses(project);
-		expect(second?.task).toMatchObject({ generatedSteps: [INTENT.add] });
 	});
 
 	flow(

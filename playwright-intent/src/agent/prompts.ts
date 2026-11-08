@@ -229,9 +229,6 @@ export function describeFailure(task: DiagnoseTask): string {
 		steps.length > 0
 			? `Steps that passed in this test:\n\n${steps.join("\n\n")}`
 			: "No other steps have passed in this test.",
-		task.generatedSteps.length > 0
-			? `Generated during this attempt, so regenerating them probably won't help:\n${task.generatedSteps.map((step) => `- ${step}`).join("\n")}`
-			: "",
 		task.extraContext ? `What else we know:\n${task.extraContext}` : "",
 		`Test file ${task.testFile.path}${task.testFile.line ? ', with the step marked ">>"' : ""}:\n${markLine(task.testFile.source, task.testFile.line)}`,
 	]

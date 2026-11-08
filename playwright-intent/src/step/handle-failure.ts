@@ -136,7 +136,6 @@ async function diagnoseFailure(
 							intent,
 							code,
 						})),
-						generatedSteps: scope.generatedSteps,
 						extraContext: await scope.failureContext?.({
 							testTitle: scope.testTitle,
 							intent: step?.intent,

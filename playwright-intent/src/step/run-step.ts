@@ -231,7 +231,6 @@ async function generateStep(
 	}
 
 	await saveStep(scope, key, intent, outcome.code);
-	scope.generatedSteps.push(intent);
 
 	if (outcome.page === "dirty") {
 		throw new IntentRewindError(
