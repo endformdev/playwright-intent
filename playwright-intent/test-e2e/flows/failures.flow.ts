@@ -157,7 +157,7 @@ flow.describe("failures in changed mode", () => {
 	});
 
 	flow(
-		"regenerate moves named steps aside and redoes them",
+		"regenerate deletes named steps and redoes them",
 		async ({ project }) => {
 			const broken = CODE.checkout.replace(
 				'"Checkout" }).click',
@@ -183,18 +183,15 @@ flow.describe("failures in changed mode", () => {
 
 			const run = await project.run({ mode: "changed", retries: 1 });
 
-			const generated = (await project.agentCalls()).filter(
-				(call) => call.kind === "generate" && call.intent === INTENT.checkout,
-			);
-			expect(generated.at(-1)?.task).toMatchObject({
-				previousFailure: { code: broken },
-			});
 			expect(run.test(CHECKOUT_TEST).attempts).toEqual(["failed", "passed"]);
 			expect(await project.stepFiles()).toEqual([
 				ADD_FILE,
 				CHECKOUT_FILE,
 				PAY_FILE,
 			]);
+			expect(await project.readStep(CHECKOUT_FILE)).toContain(
+				'"Checkout" }).click',
+			);
 		},
 	);
 
@@ -215,20 +212,20 @@ flow.describe("failures in changed mode", () => {
 				mode: "changed",
 				shop: "renamed-add-link",
 			});
-			const failedFiles = await project.stepFiles();
+			const remaining = await project.stepFiles();
 			const passed = await project.run({
 				mode: "changed",
 				shop: "renamed-add-link",
 			});
 
 			expect(failed.exitCode).toBe(1);
-			expect(failedFiles).toContain(`.failed/${ADD_FILE}.json`);
-			expect(failedFiles).not.toContain(ADD_FILE);
+			expect(remaining).toEqual([CHECKOUT_FILE, PAY_FILE]);
 			expect(passed.exitCode).toBe(0);
-			expect(await project.stepFiles()).toContain(ADD_FILE);
-			expect(await project.stepFiles()).not.toContain(
-				`.failed/${ADD_FILE}.json`,
-			);
+			expect(await project.stepFiles()).toEqual([
+				ADD_FILE,
+				CHECKOUT_FILE,
+				PAY_FILE,
+			]);
 		},
 	);
 
@@ -258,14 +255,14 @@ flow.describe("failures in changed mode", () => {
 	});
 
 	flow(
-		"rerun leaves the cache alone and fails the attempt",
+		"fail keeps the step's own error and leaves the cache alone",
 		async ({ project }) => {
 			await generateCheckout(project);
 			const stepsBefore = await project.stepFiles();
 			await project.scriptAgent({
 				diagnose: {
 					[INTENT.add]: [
-						{ decision: { action: "rerun", reason: "Looks like a one-off." } },
+						{ decision: { action: "fail", reason: "Looks like a one-off." } },
 					],
 				},
 			});
@@ -332,7 +329,7 @@ flow.describe("failures in changed mode", () => {
 			expect(diagnosis?.task).toMatchObject({ location: "outside" });
 			expect(JSON.stringify(diagnosis?.task)).toContain(CODE.pay.slice(0, 20));
 			expect(refused.test(CHECKOUT_TEST).notes[0]).toContain("can't repair");
-			expect(await project.stepFiles()).toContain(`.failed/${PAY_FILE}.json`);
+			expect(await project.stepFiles()).toEqual([ADD_FILE, CHECKOUT_FILE]);
 		},
 	);
 
@@ -412,8 +409,6 @@ flow.describe("failures in changed mode", () => {
 
 		expect(run.test(CHECKOUT_TEST).attempts).toEqual(["failed", "failed"]);
 		expect(run.exitCode).toBe(1);
-		const [, second] = await diagnoses(project);
-		expect(second?.task).toMatchObject({ regeneratedSteps: [INTENT.add] });
 	});
 
 	flow(

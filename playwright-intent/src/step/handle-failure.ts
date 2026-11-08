@@ -5,7 +5,6 @@ import { createAgentSession } from "../agent/session";
 import { IntentRewindError } from "../errors";
 import { lineInStack, readTestFile } from "../fixture/test-file";
 import type { TestScope } from "../fixture/test-scope";
-import { moveStepAside } from "./failed-step";
 import { placeholderNames } from "./intent-text";
 import type { StepContext } from "./run-step";
 import { saveStep } from "./save-step";
@@ -137,7 +136,6 @@ async function diagnoseFailure(
 							intent,
 							code,
 						})),
-						regeneratedSteps: scope.regeneratedSteps,
 						extraContext: await scope.failureContext?.({
 							testTitle: scope.testTitle,
 							intent: step?.intent,
@@ -166,7 +164,7 @@ async function diagnoseFailure(
 
 async function applyDecision(
 	scope: TestScope,
-	{ step, error }: Failure,
+	{ step }: Failure,
 	decision: FailureDecision,
 	canContinue: boolean,
 ): Promise<Result> {
@@ -204,20 +202,16 @@ async function applyDecision(
 				);
 				return { outcome: "failed" };
 			}
-			for (const { key, intent, code } of named) {
-				await moveStepAside(scope, key, { intent, code, error });
+			for (const { key } of named) {
+				await scope.store.delete(key);
 			}
 			const names = named.map(({ intent }) => `"${intent}"`).join(", ");
 			report(scope, `Regenerating ${names}${because}`);
 			return {
 				outcome: "rewind",
-				message: `Moved ${names} to .intent/.failed. A retry, or the next run, will generate them again.`,
+				message: `Deleted ${names}. A retry, or the next run, will generate them again.`,
 			};
 		}
-
-		case "rerun":
-			report(scope, `Rerunning after ${label} failed${because}`);
-			return { outcome: "failed" };
 
 		case "fail":
 			report(scope, `Left the steps alone after ${label} failed${because}`);

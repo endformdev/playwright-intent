@@ -193,7 +193,6 @@ async function diagnose(
 		endTools: {
 			...(task.location === "step" ? { repair: TOOL_TEXT.repair } : {}),
 			regenerate: TOOL_TEXT.regenerate,
-			rerun: TOOL_TEXT.rerun,
 			fail: TOOL_TEXT.fail,
 		},
 	});
@@ -214,7 +213,7 @@ async function diagnose(
 		}
 		default: {
 			const { reason } = end.input as { reason: string };
-			return { action: end.name as "rerun" | "fail", reason, transcript };
+			return { action: "fail", reason, transcript };
 		}
 	}
 }

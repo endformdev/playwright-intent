@@ -98,14 +98,13 @@ def main():
                 changed = m.diff()
                 verify = [m.run("none", grep)[0] for _ in range(2)]
                 steps = {str(p.relative_to(ROOT / ".intent")): p.read_text() for p in (ROOT / ".intent").rglob("*.ts") if p.is_file() and str(p.relative_to(ROOT / ".intent")) in changed}
-                failed = sorted(str(p.relative_to(ROOT / ".intent")) for p in (ROOT / ".intent").rglob("*") if p.is_file() and ".failed" in str(p))
             finally:
                 for path, text in originals.items():
                     path.write_text(text)
                 SECTION.unlink(missing_ok=True)
             with out.open("a") as log:
-                log.write(json.dumps(dict(name=name, round=number, exit=code, attempts=attempts, notes=notes, changed=changed, verify=verify, turns=turns, seconds=round(time.time() - started), transcripts=decisions, steps=steps, failed=failed)) + "\n")
-            print(number, name, "exit", code, attempts, "changed", len(changed), "verify", verify, "turns", turns, "left in .failed", len(failed), flush=True)
+                log.write(json.dumps(dict(name=name, round=number, exit=code, attempts=attempts, notes=notes, changed=changed, verify=verify, turns=turns, seconds=round(time.time() - started), transcripts=decisions, steps=steps)) + "\n")
+            print(number, name, "exit", code, attempts, "changed", len(changed), "verify", verify, "turns", turns, flush=True)
             for note in notes:
                 print("   ", note[:210].replace("\n", " | "), flush=True)
     print("done")

@@ -39,8 +39,6 @@ export interface TestScope {
 	cleared: boolean;
 	/** This attempt's failure is already dealt with. */
 	diagnosed: boolean;
-	/** Intents this attempt generated after an earlier failure. */
-	regeneratedSteps: string[];
 	failureContext?: FailureContextProvider;
 	localPath(key: string): string;
 }
@@ -96,7 +94,6 @@ export function createTestScope(
 		currentStep: null,
 		cleared: false,
 		diagnosed: false,
-		regeneratedSteps: [],
 		failureContext: options.context,
 		localPath: (key) => path.join(intentRoot, ...key.split("/")),
 	};

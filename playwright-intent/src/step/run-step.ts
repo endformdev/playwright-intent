@@ -19,7 +19,6 @@ import {
 import { readTestFile } from "../fixture/test-file";
 import type { TestScope } from "../fixture/test-scope";
 import { materializeStep } from "../store/file-store";
-import { clearFailedStep, readFailedStep } from "./failed-step";
 import { diagnosesFailures, handleStepFailure } from "./handle-failure";
 import {
 	assertVariablesMatch,
@@ -202,7 +201,6 @@ async function generateStep(
 		intent,
 	});
 	const testFile = await readTestFile(scope, line);
-	const failed = await readFailedStep(scope, key);
 
 	scope.testInfo.setTimeout(scope.testInfo.timeout + scope.limits.timeoutMs);
 
@@ -217,7 +215,6 @@ async function generateStep(
 					variableNames: placeholderNames(intent),
 					previousSteps: scope.finishedSteps.map((step) => step.intent),
 					limits: scope.limits,
-					...(failed ? { previousFailure: failed } : {}),
 				},
 				createAgentSession(context, scope.session),
 			),
@@ -238,10 +235,6 @@ async function generateStep(
 	}
 
 	await saveStep(scope, key, intent, outcome.code);
-	if (failed) {
-		await clearFailedStep(scope, key);
-		scope.regeneratedSteps.push(intent);
-	}
 
 	if (outcome.page === "dirty") {
 		throw new IntentRewindError(
