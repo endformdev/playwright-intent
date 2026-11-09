@@ -80,7 +80,7 @@ export default defineConfig<IntentUseOptions>({
 	expect: { timeout: 1_000 },
 	reporter: [
 		["json", { outputFile: "report.json" }],
-		["playwright-intent/reporter", { outputFile: "intent-changes.json" }],
+		["playwright-intent/reporter"],
 		...(INTENT_E2E_BLOB ? ([["blob"]] as const) : []),
 	],
 	use: {

@@ -21,29 +21,14 @@ import {
 	type RunChange,
 } from "./change-set";
 
-export type { ChangeSet, RunChange, RunDiagnosis } from "./change-set";
-
-export interface IntentReporterOptions {
-	/**
-	 * Writes the run's change set as JSON, relative to the Playwright config.
-	 * Written on every run, so a later CI step can rely on it being there.
-	 */
-	outputFile?: string;
-}
-
 /**
  * Sees every test in a run, which a worker can't. Needed with `commit()` or
  * `propose()`, and works under `merge-reports` when it's given `-c`.
  */
 export default class IntentReporter implements Reporter {
-	readonly #outputFile?: string;
 	#directory = "";
 	#sharded = false;
 	#suite?: Suite;
-
-	constructor(options: IntentReporterOptions = {}) {
-		this.#outputFile = options.outputFile;
-	}
 
 	printsToStdio(): boolean {
 		return false;
@@ -66,11 +51,6 @@ export default class IntentReporter implements Reporter {
 		const changes = buildChangeSet(tests);
 
 		printChanges(changes);
-		if (this.#outputFile) {
-			const file = path.resolve(this.#directory, this.#outputFile);
-			await fs.mkdir(path.dirname(file), { recursive: true });
-			await fs.writeFile(file, `${JSON.stringify(changes, null, "\t")}\n`);
-		}
 
 		try {
 			await deliverChanges({

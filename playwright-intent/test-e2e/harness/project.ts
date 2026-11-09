@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import type { ChangeRecord } from "playwright-intent";
-import type { ChangeSet } from "playwright-intent/reporter";
 import { WORKSPACES } from "../global-setup";
 import {
 	AGENT_CALLS_FILE,
@@ -71,9 +70,25 @@ export interface TestResultSummary {
 	trace(attempt?: number): TraceContents;
 }
 
+export interface ReportedChange {
+	key: string;
+	kind: string;
+	cause: string;
+	delivery: string;
+	reason?: string;
+}
+
+/** What the reporter printed about the run's step changes. */
+export interface ReportedChanges {
+	passed: ReportedChange[];
+	failed: ReportedChange[];
+	diagnoses: { test: string; reason: string }[];
+}
+
 export interface RunResult {
 	exitCode: number;
 	output: string;
+	reported: ReportedChanges;
 	test(title: string): TestResultSummary;
 }
 
@@ -148,13 +163,6 @@ export class Project {
 			],
 			options,
 		);
-	}
-
-	/** What the reporter wrote in the last run. */
-	async changeSet(): Promise<ChangeSet> {
-		return JSON.parse(
-			await fs.readFile(this.#path("intent-changes.json"), "utf8"),
-		) as ChangeSet;
 	}
 
 	/** Everything in `.intent`, relative to it and sorted. */
@@ -350,6 +358,41 @@ interface JsonSpec {
 	}[];
 }
 
+const CHANGE_LINE =
+	/^ {2}\.intent\/(.+) \((write|delete), (repair|generate|regenerate), (commit|propose)\)(?:: (.*))?$/;
+
+function readReportedChanges(output: string): ReportedChanges {
+	const lines = output.split("\n");
+	const section = (heading: string): string[] => {
+		const start = lines.findIndex((line) =>
+			line.startsWith(`[intent] ${heading}`),
+		);
+		if (start === -1) return [];
+		const rest = lines.slice(start + 1);
+		const end = rest.findIndex((line) => !line.startsWith("  "));
+		return end === -1 ? rest : rest.slice(0, end);
+	};
+	const changes = (heading: string): ReportedChange[] =>
+		section(heading).map((line) => {
+			const match = CHANGE_LINE.exec(line);
+			if (!match) throw new Error(`Can't read this change: ${line}`);
+			const [, key = "", kind = "", cause = "", delivery = "", reason] = match;
+			return { key, kind, cause, delivery, ...(reason && { reason }) };
+		});
+
+	return {
+		passed: changes("Step changes from passing tests"),
+		failed: changes("Step changes from failing tests"),
+		diagnoses: section("Failures the agent left alone").map((line) => {
+			const separator = line.indexOf(": ");
+			return {
+				test: line.slice(2, separator),
+				reason: line.slice(separator + 2),
+			};
+		}),
+	};
+}
+
 function createRunResult(
 	exitCode: number,
 	output: string,
@@ -360,6 +403,7 @@ function createRunResult(
 	return {
 		exitCode,
 		output,
+		reported: readReportedChanges(output),
 		test(title) {
 			const test = specs.find((spec) => spec.title === title)?.tests[0];
 			if (!test) {

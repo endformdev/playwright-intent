@@ -217,7 +217,7 @@ flow.describe("delivering through GitHub", () => {
 
 			expect(github.requests).toEqual([]);
 			expect(run.output).toContain("Not delivering from one shard");
-			expect((await project.changeSet()).passed).toHaveLength(1);
+			expect(run.reported.passed).toHaveLength(1);
 		},
 	);
 

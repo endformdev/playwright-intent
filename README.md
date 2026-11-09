@@ -167,7 +167,7 @@ jobs:
 
 Sharded runs deliver from `playwright merge-reports` instead. See [the design notes](docs/design.md#delivering-through-github).
 
-The reporter takes `{ outputFile }` to also write the run's changes as JSON. Pull requests from forks and Dependabot get a read-only token and no secrets, so both policies act as `refuse()` there.
+Pull requests from forks and Dependabot get a read-only token and no secrets, so both policies act as `refuse()` there.
 
 ## Prompts
 

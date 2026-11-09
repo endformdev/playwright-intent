@@ -73,7 +73,7 @@ flow.describe("commit and propose", () => {
 				delivery: "commit",
 			},
 		]);
-		expect((await project.changeSet()).passed).toMatchObject([
+		expect(run.reported.passed).toMatchObject([
 			{ key: ADD_FILE, kind: "write", delivery: "commit" },
 		]);
 		expect(run.output).toContain("Step changes from passing tests (1)");
@@ -100,7 +100,7 @@ flow.describe("commit and propose", () => {
 		expect(run.exitCode).toBe(0);
 		expect(test.outcome).toBe("flaky");
 		expect(test.attempts).toEqual(["failed", "passed"]);
-		expect((await project.changeSet()).passed).toHaveLength(1);
+		expect(run.reported.passed).toHaveLength(1);
 	});
 
 	flow("propose stays red once the fix passes", async ({ project }) => {
@@ -120,7 +120,7 @@ flow.describe("commit and propose", () => {
 		expect(test.changes).toMatchObject([
 			{ attempt: 0, key: ADD_FILE, delivery: "propose" },
 		]);
-		expect((await project.changeSet()).passed).toMatchObject([
+		expect(run.reported.passed).toMatchObject([
 			{ key: ADD_FILE, delivery: "propose" },
 		]);
 	});
@@ -145,7 +145,7 @@ flow.describe("commit and propose", () => {
 		);
 		// Later attempts fail before the test starts, so they record no trace steps.
 		expect(run.test(CHECKOUT_TEST).notes).toHaveLength(1);
-		expect((await project.changeSet()).passed).toHaveLength(1);
+		expect(run.reported.passed).toHaveLength(1);
 	});
 
 	flow(
@@ -180,7 +180,7 @@ flow.describe("commit and propose", () => {
 				{ attempt: 0, key: CHECKOUT_FILE, cause: "generate" },
 				{ attempt: 0, key: PAY_FILE, cause: "generate" },
 			]);
-			expect((await project.changeSet()).passed).toHaveLength(3);
+			expect(run.reported.passed).toHaveLength(3);
 		},
 	);
 
@@ -214,7 +214,7 @@ flow.describe("commit and propose", () => {
 			{ attempt: 0, kind: "delete", key: ADD_FILE, cause: "regenerate" },
 			{ attempt: 1, kind: "write", key: ADD_FILE, cause: "generate" },
 		]);
-		expect((await project.changeSet()).passed).toMatchObject([
+		expect(run.reported.passed).toMatchObject([
 			{ key: ADD_FILE, kind: "write", cause: "regenerate", reason: REASON },
 		]);
 	});
@@ -246,7 +246,7 @@ flow.describe("commit and propose", () => {
 				delivery: "commit",
 			},
 		]);
-		const set = await project.changeSet();
+		const set = run.reported;
 		expect(set.passed).toEqual([]);
 		expect(set.diagnoses).toMatchObject([{ reason: "Payments are down." }]);
 	});
@@ -259,7 +259,7 @@ flow.describe("commit and propose", () => {
 		const run = await project.run({ changes: "commit" });
 
 		expect(run.test(CHECKOUT_TEST).attempts).toEqual(["failed"]);
-		const set = await project.changeSet();
+		const set = run.reported;
 		expect(set.passed).toEqual([]);
 		expect(set.failed).toMatchObject([{ key: ADD_FILE }]);
 		expect(run.output).toContain(
@@ -281,7 +281,7 @@ flow.describe("commit and propose", () => {
 			expect(run.test(CHECKOUT_TEST).attachments).not.toContain(
 				"intent-change",
 			);
-			expect(await project.changeSet()).toEqual({
+			expect(run.reported).toEqual({
 				passed: [],
 				failed: [],
 				diagnoses: [],
@@ -334,7 +334,7 @@ flow.describe("commit and propose", () => {
 			await project.run({ ...options, shard: "2/2" });
 			const merged = await project.mergeReports();
 
-			const set = await project.changeSet();
+			const set = merged.reported;
 			expect(set.passed.map((change) => change.key)).toEqual([
 				ADD_FILE,
 				`tests/second.spec.ts/${second}/${second}.ts`,

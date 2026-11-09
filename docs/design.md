@@ -139,7 +139,7 @@ It's an explicit line, and only `commit()` and `propose()` need it. The fixture 
 - Only keys inside `.intent` count. Records come from workers that run model-written code.
 - Repository paths come from `config.configFile`, which `merge-reports` sets from `-c`.
 
-The reporter prints the changes from passing and failing tests, and the diagnoses. With `{ outputFile }` it also writes them as JSON on every run.
+The reporter prints the changes from passing and failing tests, and the diagnoses.
 
 ### Delivering through GitHub
 
