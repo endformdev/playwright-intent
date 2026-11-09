@@ -176,7 +176,7 @@ function commitMessage(
 		const because = reason ? `: ${reason.replace(/\s+/g, " ")}` : "";
 		return `- ${kind === "delete" ? "delete" : cause} ${repoPath(key)}${because}`;
 	});
-	return `Update intent steps proven in CI\n\n${lines.join("\n")}`;
+	return `Update Playwright Intent steps\n\n${lines.join("\n")}`;
 }
 
 /** Keeps one comment up to date, so reruns don't pile up. */

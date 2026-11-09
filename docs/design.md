@@ -146,7 +146,7 @@ The reporter prints the proven and unproven changes, and the diagnoses. With `{ 
 On a `pull_request` run in GitHub Actions, the reporter delivers the proven changes:
 
 - `commit()` creates one commit on the pull request's head through the API. A `pull_request` run checks out a merge commit, so a plain `git push` would push the wrong thing. If the head has moved since the tests ran, nothing is committed.
-- `propose()` keeps one comment up to date with a patch, built as a `git diff` against the pull request's head. Inline suggestions won't work, because the broken step file usually isn't in the pull request's diff. Failures the agent left alone are listed there too, and when a later run has nothing to propose the comment says so.
+- `propose()` keeps one comment up to date, describing each fix above a collapsed patch built as a `git diff` against the pull request's head. Inline suggestions won't work, because the broken step file usually isn't in the pull request's diff. Failures the agent left alone are listed there too, and when a later run has nothing to propose the comment says so.
 
 | Policy      | `permissions:`         | Notes                                      |
 | ----------- | ---------------------- | ------------------------------------------ |

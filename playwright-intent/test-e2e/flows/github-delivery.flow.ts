@@ -128,6 +128,11 @@ flow.describe("delivering through GitHub", () => {
 			await project.readStep(ADD_FILE),
 		);
 		expect(body).toContain("@​someone &lt;b&gt;");
+		expect(body.indexOf("<details>")).toBeGreaterThan(body.indexOf(ADD_FILE));
+		expect(body.indexOf("<details>")).toBeLessThan(body.indexOf("git apply"));
+		expect(body.indexOf("</details>")).toBeGreaterThan(
+			body.indexOf("INTENT_PATCH\n```"),
+		);
 	});
 
 	flow("a rerun updates the same comment", async ({ project, github }) => {

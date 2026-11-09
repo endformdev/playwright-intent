@@ -21,9 +21,8 @@ export function renderProposalComment({
 	const sections = [COMMENT_MARKER];
 
 	if (proposals.length > 0) {
-		const fix = proposals.length === 1 ? "A step fix" : "These step fixes";
 		sections.push(
-			`### Proposed step fixes\n\n${fix} passed on a retry at \`${sha.slice(0, 7)}\`. The tests stay failed until the fixes are applied.`,
+			`### Proposed Playwright Intent step fixes\n\nAn automatic fix was found for the following failing Playwright end-to-end tests at\`${sha.slice(0, 7)}\`. These changes need applying for the tests to pass.`,
 			proposals.map(describeProposal).join("\n"),
 		);
 		sections.push(applyInstructions(patch));
@@ -62,7 +61,7 @@ function applyInstructions(patch: string): string {
 		...[...script.matchAll(/`+/g)].map((match) => match[0].length),
 	);
 	const fence = "`".repeat(longest + 1);
-	return `Run this from the repository root, then commit the result:\n\n${fence}sh\n${script}\n${fence}`;
+	return `<details>\n<summary>Apply the fixes with a patch</summary>\n\nRun this from the repository root, then commit the result:\n\n${fence}sh\n${script}\n${fence}\n\n</details>`;
 }
 
 /** Reasons are written by the model, so they mustn't ping anyone or add HTML. */
