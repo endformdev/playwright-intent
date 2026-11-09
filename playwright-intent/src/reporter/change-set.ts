@@ -34,9 +34,10 @@ export interface RunDiagnosis {
 }
 
 export interface ChangeSet {
-	/** A later attempt of the same test passed without rewriting these. */
-	proven: RunChange[];
-	unproven: RunChange[];
+	/** Saved by tests that ended up passing, so these get delivered. */
+	passed: RunChange[];
+	/** Saved by tests that never passed, so these are left out. */
+	failed: RunChange[];
 	diagnoses: RunDiagnosis[];
 }
 
@@ -47,16 +48,14 @@ function isFileRecord(record: ChangeRecord): record is FileRecord {
 }
 
 export function buildChangeSet(tests: TestChanges[]): ChangeSet {
-	const proven = new Map<string, RunChange>();
-	const unproven = new Map<string, RunChange>();
+	const passed = new Map<string, RunChange>();
+	const failed = new Map<string, RunChange>();
 	const diagnoses = new Map<string, RunDiagnosis>();
 
 	for (const { title, attempts } of tests) {
-		const proofAt = attempts.findLastIndex(
-			(attempt) => attempt.passed && !attempt.records.some(isFileRecord),
-		);
-		addChanges(proven, title, attempts.slice(0, Math.max(proofAt, 0)));
-		addChanges(unproven, title, attempts.slice(proofAt + 1));
+		const passedAt = attempts.findLastIndex((attempt) => attempt.passed);
+		addChanges(passed, title, attempts.slice(0, passedAt + 1));
+		addChanges(failed, title, attempts.slice(passedAt + 1));
 
 		for (const record of attempts.flatMap((attempt) => attempt.records)) {
 			if (record.kind !== "diagnosis") continue;
@@ -72,10 +71,10 @@ export function buildChangeSet(tests: TestChanges[]): ChangeSet {
 	}
 
 	return {
-		// Browser projects share steps, so a file proven in one test can still
+		// Browser projects share steps, so a file from a passing test can still
 		// have been overwritten by another test that went on to fail.
-		proven: sortedByKey(proven).filter(({ key }) => !unproven.has(key)),
-		unproven: sortedByKey(unproven),
+		passed: sortedByKey(passed).filter(({ key }) => !failed.has(key)),
+		failed: sortedByKey(failed),
 		diagnoses: [...diagnoses.values()],
 	};
 }

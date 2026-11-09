@@ -28,7 +28,7 @@ export interface TestScope {
 	checkChange(
 		change: Pick<StepChange, "type" | "intent" | "key">,
 	): void | Promise<void>;
-	/** Set when saved changes are proven on a retry and handed to the reporter. */
+	/** Set when saved changes are handed to the reporter. */
 	delivery: ChangeDelivery | null;
 	limits: IntentLimits;
 	session: SessionOptions;
@@ -89,12 +89,7 @@ export function createTestScope(
 						? createAiSdkAgent(options.model, options.prompts)
 						: null)),
 		store: options.store.open(intentRoot),
-		checkChange: (change) =>
-			changePolicy.check({
-				...change,
-				test: testTitle,
-				retriesLeft: testInfo.project.retries - testInfo.retry,
-			}),
+		checkChange: (change) => changePolicy.check({ ...change, test: testTitle }),
 		delivery: deliveryOf(changePolicy),
 		limits: { ...DEFAULT_LIMITS, ...options.limits },
 		session,

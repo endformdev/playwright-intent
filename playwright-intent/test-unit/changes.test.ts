@@ -14,7 +14,6 @@ import {
 const change: StepChange = {
 	type: "generate",
 	test: "checkout",
-	retriesLeft: 1,
 };
 const pair: Changes = { local: allow(), ci: refuse() };
 
@@ -46,15 +45,9 @@ test("a custom function decides permission under the name custom", () => {
 	expect(check).toHaveBeenCalledWith(change);
 });
 
-test.each([commit, propose])(
-	"%o needs a retry left to prove a change",
-	(policy) => {
-		expect(() => policy().check(change)).not.toThrow();
-		expect(() => policy().check({ ...change, retriesLeft: 0 })).toThrow(
-			IntentChangeRejectedError,
-		);
-	},
-);
+test.each([commit, propose])("%o lets the change through", (policy) => {
+	expect(() => policy().check(change)).not.toThrow();
+});
 
 test("only commit and propose deliver changes", () => {
 	expect(deliveryOf(commit())).toBe("commit");

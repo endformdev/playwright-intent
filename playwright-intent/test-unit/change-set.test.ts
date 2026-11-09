@@ -23,12 +23,12 @@ const failed = (...records: ChangeRecord[]): AttemptChanges => ({
 });
 const passed: AttemptChanges = { passed: true, records: [] };
 
-test("a change is proven by a later attempt that passes", () => {
+test("a change is kept when a later attempt passes", () => {
 	const set = buildChangeSet([
 		{ title: "a", attempts: [failed(write("a.ts", "Renamed")), passed] },
 	]);
 
-	expect(set.proven).toEqual([
+	expect(set.passed).toEqual([
 		{
 			key: "a.ts",
 			kind: "write",
@@ -39,31 +39,25 @@ test("a change is proven by a later attempt that passes", () => {
 			tests: ["a"],
 		},
 	]);
-	expect(set.unproven).toEqual([]);
+	expect(set.failed).toEqual([]);
 });
 
-test("a change from a test that never passed is unproven", () => {
+test("a change from a test that never passed is left out", () => {
 	const set = buildChangeSet([
 		{ title: "a", attempts: [failed(write("a.ts")), failed()] },
 	]);
 
-	expect(set.proven).toEqual([]);
-	expect(set.unproven.map((change) => change.key)).toEqual(["a.ts"]);
+	expect(set.passed).toEqual([]);
+	expect(set.failed.map((change) => change.key)).toEqual(["a.ts"]);
 });
 
-test("an attempt that passes after rewriting proves nothing", () => {
+test("an attempt that passes with its own change keeps it", () => {
 	const set = buildChangeSet([
-		{
-			title: "a",
-			attempts: [
-				failed(write("a.ts")),
-				{ passed: true, records: [write("a.ts")] },
-			],
-		},
+		{ title: "a", attempts: [{ passed: true, records: [write("a.ts")] }] },
 	]);
 
-	expect(set.proven).toEqual([]);
-	expect(set.unproven.map((change) => change.key)).toEqual(["a.ts"]);
+	expect(set.passed.map((change) => change.key)).toEqual(["a.ts"]);
+	expect(set.failed).toEqual([]);
 });
 
 test("a file a failed test also wrote can't be trusted", () => {
@@ -72,11 +66,11 @@ test("a file a failed test also wrote can't be trusted", () => {
 		{ title: "firefox", attempts: [failed(write("a.ts")), failed()] },
 	]);
 
-	expect(set.proven).toEqual([]);
-	expect(set.unproven.map((change) => change.tests)).toEqual([["firefox"]]);
+	expect(set.passed).toEqual([]);
+	expect(set.failed.map((change) => change.tests)).toEqual([["firefox"]]);
 });
 
-test("tests that prove the same file are listed together", () => {
+test("tests that pass with the same file are listed together", () => {
 	const attempts = [failed(write("a.ts")), passed];
 
 	const set = buildChangeSet([
@@ -84,7 +78,7 @@ test("tests that prove the same file are listed together", () => {
 		{ title: "firefox", attempts },
 	]);
 
-	expect(set.proven.map((change) => change.tests)).toEqual([
+	expect(set.passed.map((change) => change.tests)).toEqual([
 		["chromium", "firefox"],
 	]);
 });
@@ -111,7 +105,7 @@ test("a regenerated step keeps the reason it was deleted", () => {
 		{ title: "a", attempts: [failed(remove), failed(generate), passed] },
 	]);
 
-	expect(set.proven).toMatchObject([
+	expect(set.passed).toMatchObject([
 		{ key: "a.ts", kind: "write", cause: "regenerate", reason: "Stale" },
 	]);
 });
@@ -134,7 +128,7 @@ test("only a test's latest diagnosis is kept", () => {
 		},
 	]);
 
-	expect(set.proven).toEqual([]);
+	expect(set.passed).toEqual([]);
 	expect(set.diagnoses).toEqual([
 		{ test: "a", reason: "Payments are down", delivery: "commit" },
 	]);

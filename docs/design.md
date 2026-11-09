@@ -42,7 +42,7 @@ Code always runs from disk, because Playwright reads the file for snippets and t
 
 - `allow()` lets the agent generate missing steps and diagnose failures, and its changes stay on disk to review and commit.
 - `refuse()` never runs the agent. A missing step throws `IntentChangeRejectedError`, and a failing step is an ordinary test failure.
-- `commit()` and `propose()` allow the change, prove it on a retry, and leave a record for the reporter. See [Delivering changes](#delivering-changes).
+- `commit()` and `propose()` allow the change and leave a record for the reporter. See [Delivering changes](#delivering-changes).
 
 Built-in policies are named values rather than plain functions, so the library knows which one is active and can tell a reporter. A custom function can still decide permission, but it can't deliver anything. One that throws for `diagnose` generates steps and leaves failures alone: the test keeps its own error, and the rejection is reported.
 
@@ -70,7 +70,7 @@ Each task includes the test file as it is on disk, with the line of the current 
 | `solved`, `dirty` | Yes   | Fails, and a retry replays it |
 | `failed`          | No    | Fails                         |
 
-The first normal replay proves a generated step works.
+The first normal replay shows whether a generated step works.
 
 ## Regenerating steps
 
@@ -109,20 +109,20 @@ A repair that changes a step's assertions is listed in the run output, but isn't
 
 With `allow()` or `refuse()` none of this happens: there are no records, and no test fails on purpose.
 
-In CI, `refuse()` stays red until someone reruns locally, and `allow()` goes green on code nobody reviewed that's lost with the machine. `commit()` and `propose()` make CI produce a fix that's proven and reviewable.
+In CI, `refuse()` stays red until someone reruns locally, and `allow()` goes green on code nobody reviewed that's lost with the machine. `commit()` and `propose()` make CI produce a fix someone can review.
 
-A saved change never continues in the same attempt. The attempt fails on purpose, and a retry replays the code from a clean page. That retry is the proof.
+Saved changes follow the same rule as any other run: `ready` carries on in the same attempt, and `dirty` fails it so a retry can replay from a clean page. A change is delivered if its test ended up passing. Its code may not have been replayed as a whole yet, so the next CI run on the branch is what replays it.
 
-| Policy      | After the retry passes                           | Run                    |
-| ----------- | ------------------------------------------------ | ---------------------- |
-| `commit()`  | The test passes, and Playwright calls it flaky   | Green                  |
-| `propose()` | The fixture's teardown fails the proving attempt | Red until it's applied |
+| Policy      | Once the test passes                          | Run                    |
+| ----------- | --------------------------------------------- | ---------------------- |
+| `commit()`  | Nothing more. It's flaky if it needed a retry | Green                  |
+| `propose()` | The fixture's teardown fails the attempt      | Red until it's applied |
 
 The worker attaches an `intent-change` record for each write, delete and diagnosis. A write's record includes the step's source, so the report alone carries a run's changes. The delivery job doesn't need `.intent` restored, and a shard's out-of-date copy can't replace another shard's fix. `delivery` is in the record because a reporter under `merge-reports` can't read `use.intent`.
 
-A proving retry for `propose()` is told apart from a normal flaky test by a marker in the project's output folder, because a retry is a new process. The first attempt clears it, so nothing carries over between runs. The failed attempt also attaches `intent-proof`, so the reporter knows it passed.
+For `propose()`, a marker in the project's output folder records that the test saved a change, because a retry is a new process. That tells a passing retry from a normal flaky test. The first attempt clears it, so nothing carries over between runs. An attempt that passed and was failed on purpose attaches `intent-passed`, so the reporter knows it passed, and any retries left fail straight away.
 
-Each change uses one retry, because of the rule above and because an attempt only gets one diagnosis. An attempt with no retries left can't prove anything, so the policy refuses it before the model is called. A test with more broken steps than retries fails, and its fixes are listed as unproven.
+An attempt only gets one diagnosis, so each broken step past the first needs a retry, as does anything `dirty`. A test that runs out of retries fails, and its changes are left out.
 
 ### The reporter
 
@@ -134,16 +134,16 @@ Gathering a run's fixes needs something that sees every test. A reporter is the 
 
 It's an explicit line, and only `commit()` and `propose()` need it. The fixture doesn't check for it, because a sharded run's reporter is in the merge job.
 
-- A change is proven when one attempt wrote it and a later attempt of the same test passed without rewriting it.
-- Browser projects share steps, so a file that a failed test also wrote isn't proven.
+- A change counts as passed when an attempt saved it and that attempt or a later one of the same test passed.
+- Browser projects share steps, so a file that a failed test also wrote is left out.
 - Only keys inside `.intent` count. Records come from workers that run model-written code.
 - Repository paths come from `config.configFile`, which `merge-reports` sets from `-c`.
 
-The reporter prints the proven and unproven changes, and the diagnoses. With `{ outputFile }` it also writes them as JSON on every run.
+The reporter prints the changes from passing and failing tests, and the diagnoses. With `{ outputFile }` it also writes them as JSON on every run.
 
 ### Delivering through GitHub
 
-On a `pull_request` run in GitHub Actions, the reporter delivers the proven changes:
+On a `pull_request` run in GitHub Actions, the reporter delivers the changes from passing tests:
 
 - `commit()` creates one commit on the pull request's head through the API. A `pull_request` run checks out a merge commit, so a plain `git push` would push the wrong thing. If the head has moved since the tests ran, nothing is committed.
 - `propose()` keeps one comment up to date, describing each fix above a collapsed patch built as a `git diff` against the pull request's head. Inline suggestions won't work, because the broken step file usually isn't in the pull request's diff. Failures the agent left alone are listed there too, and when a later run has nothing to propose the comment says so.
@@ -153,7 +153,7 @@ On a `pull_request` run in GitHub Actions, the reporter delivers the proven chan
 | `propose()` | `pull-requests: write` | Nothing lands until a person applies it    |
 | `commit()`  | `contents: write`      | The bot's commit needs its CI run approved |
 
-Model-written code runs in Playwright workers and can read their environment, so delivery only happens under `playwright merge-reports`, which is what Endform's CI job runs too. A plain `playwright test` never delivers, even with a token. The token belongs on the merge step in a separate job, and the test job should use `persist-credentials: false`.
+A run delivers from the job that ran the tests, so a single job with the permissions above and `GITHUB_TOKEN` is enough. One shard only sees part of a run, so it never delivers. Sharded runs, and Endform's CI job, deliver from `playwright merge-reports`, with the reporter in the config passed to `-c`.
 
 Pull requests from forks and Dependabot get a read-only token and no secrets, so both policies act as `refuse()` there.
 

@@ -6,7 +6,7 @@ import { IntentRewindError } from "../errors";
 import { lineInStack, readTestFile } from "../fixture/test-file";
 import type { TestScope } from "../fixture/test-scope";
 import { placeholderNames } from "./intent-text";
-import { provedOnRetry, recordChange } from "./record-change";
+import { recordChange } from "./record-change";
 import type { StepContext } from "./run-step";
 import { saveStep } from "./save-step";
 import { actedBeforeLine } from "./step-file";
@@ -193,12 +193,6 @@ async function applyDecision(
 			report(scope, `Repaired ${label}${because}`);
 			reportChangedAssertions(scope, step.code, decision.code);
 
-			if (scope.delivery) {
-				return {
-					outcome: "rewind",
-					message: `Saved a repair for ${label}. ${provedOnRetry(scope.delivery)}`,
-				};
-			}
 			if (decision.page === "ready" && canContinue) {
 				return { outcome: "continue", code: decision.code };
 			}

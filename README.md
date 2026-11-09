@@ -111,7 +111,7 @@ A store always needs `changes`, because a change that nobody keeps is lost. A st
 
 - `allow()` lets the agent write missing steps and diagnose failing ones, and leaves its changes on disk for you to review and commit.
 - `refuse()` never calls the model. A missing step fails the test, and a failing step fails like any other test.
-- `commit()` and `propose()` prove each change on a retry and deliver the proven ones to the pull request. See [Proven changes in CI](#proven-changes-in-ci).
+- `commit()` and `propose()` let the agent make changes and deliver them to the pull request. See [Regenerating intent steps in CI](#regenerating-intent-steps-in-ci).
 
 Pass one policy to use it everywhere, or `{ local, ci }` to choose by whether the `CI` environment variable is set:
 
@@ -134,69 +134,38 @@ To regenerate steps, delete their files from `.intent`, and the next run writes 
 
 `openFileStore(root)` from `playwright-intent/file-store` is the store on its own, for scripts that need to read `.intent` outside a test.
 
-### Proven changes in CI
+### Regenerating intent steps in CI
 
-`commit()` and `propose()` are for CI runs that should produce a fix rather than lose it. A saved change never continues in the same attempt. The attempt fails on purpose, and a retry replays the code from a clean page to prove it.
+`commit()` and `propose()` are for CI runs that should produce a fix rather than lose it. The agent works as it does anywhere else, and the reporter delivers the changes from tests that end up passing:
 
-- With `commit()`, the test passes on the retry and shows as flaky.
-- With `propose()`, the test stays red.
+- `commit()` adds one commit to the pull request, and the test passes. The bot's commit needs its CI run approved.
+- `propose()` leaves a comment with a patch to paste, and the test stays red until it's applied.
 
-Each change uses one retry, so set `retries` to at least the number of steps you expect to break.
-
-On a pull request, the reporter delivers what a run proved. With `commit()` that's one commit on the branch, and the bot's commit needs its CI run approved. With `propose()` it's a comment with a patch to paste.
-
-Model-written code can read the environment of `playwright test`, so delivery only runs under `playwright merge-reports`, in its own job. Have the tests write a `blob` report, and put the reporter in the config you pass to `merge-reports`:
+Add the reporter to your config, and keep `retries` at 1 or more, because the agent sometimes needs a clean page to carry on from:
 
 ```ts
-// merge.config.ts
-export default {
-	reporter: [["list"], ["playwright-intent/reporter"]],
-};
+reporter: [["list"], ["playwright-intent/reporter"]],
 ```
 
-```yaml
-permissions:
-  contents: read
+Then give the job that runs your tests permission to deliver:
 
+```yaml
 jobs:
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      # Install dependencies and browsers, then:
-      - run: npx playwright test
-        env:
-          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: blob-report
-          path: blob-report
-
-  deliver:
-    needs: test
-    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # For commit()
       pull-requests: write # For propose()
     steps:
       - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      # Install dependencies, then:
-      - uses: actions/download-artifact@v5
-        with:
-          name: blob-report
-          path: blob-report
-      - run: npx playwright merge-reports -c merge.config.ts blob-report
+      # Install dependencies and browsers, then:
+      - run: npx playwright test
         env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
 ```
 
-With sharding, upload one blob report per shard and download them into the same folder.
+Sharded runs deliver from `playwright merge-reports` instead. See [the design notes](docs/design.md#delivering-through-github).
 
 The reporter takes `{ outputFile }` to also write the run's changes as JSON. Pull requests from forks and Dependabot get a read-only token and no secrets, so both policies act as `refuse()` there.
 

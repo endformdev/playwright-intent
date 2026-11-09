@@ -18,8 +18,8 @@ export interface DeliveryOptions {
 	/** The `.intent` folder. */
 	root: string;
 	env: NodeJS.ProcessEnv;
-	/** False when this process's environment is shared with test workers. */
-	isolated: boolean;
+	/** One shard only sees part of a run, so merge-reports delivers instead. */
+	sharded: boolean;
 }
 
 type TreeEntry = {
@@ -45,13 +45,13 @@ export async function deliverChanges({
 	changes,
 	root,
 	env,
-	isolated,
+	sharded,
 }: DeliveryOptions): Promise<void> {
 	if (env.GITHUB_ACTIONS !== "true") return;
-	const commits = changes.proven.filter(
+	const commits = changes.passed.filter(
 		({ delivery }) => delivery === "commit",
 	);
-	const proposals = changes.proven.filter(
+	const proposals = changes.passed.filter(
 		({ delivery }) => delivery === "propose",
 	);
 	const diagnoses = changes.diagnoses.filter(
@@ -59,11 +59,11 @@ export async function deliverChanges({
 	);
 	const pending = commits.length + proposals.length + diagnoses.length > 0;
 
-	if (!isolated) {
+	if (sharded) {
 		if (pending) {
 			log(
-				"Not delivering from this process, because it shares its environment " +
-					"with test workers. Run playwright merge-reports in a separate job.",
+				"Not delivering from one shard of a run. Run playwright merge-reports " +
+					"to deliver the whole run.",
 			);
 		}
 		return;
@@ -78,9 +78,7 @@ export async function deliverChanges({
 	const token = env.GITHUB_TOKEN;
 	if (!token) {
 		if (!pending) return;
-		throw new Error(
-			"Set GITHUB_TOKEN on the merge-reports step to deliver step changes.",
-		);
+		throw new Error("Set GITHUB_TOKEN on this step to deliver step changes.");
 	}
 
 	const prefix = repositoryPrefix(root, env);
@@ -151,7 +149,7 @@ async function commitChanges(
 		tree: entries,
 	});
 	if (tree.sha === head.tree.sha) {
-		log("The proven step changes are already on the pull request.");
+		log("These step changes are already on the pull request.");
 		return;
 	}
 	const commit = await github.json<{ sha: string }>("POST", "git/commits", {
@@ -164,7 +162,7 @@ async function commitChanges(
 		force: false,
 	});
 	log(
-		`Committed ${entries.length} proven step change(s) as ${commit.sha.slice(0, 7)}.`,
+		`Committed ${entries.length} step change(s) as ${commit.sha.slice(0, 7)}.`,
 	);
 }
 

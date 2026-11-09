@@ -24,7 +24,7 @@ import {
 	placeholderNames,
 	type StepVariables,
 } from "./intent-text";
-import { provedOnRetry, recordChange } from "./record-change";
+import { recordChange } from "./record-change";
 import { saveStep } from "./save-step";
 import { parseStepCode, parseStepHeader } from "./step-file";
 import { stepKey } from "./step-path";
@@ -213,11 +213,6 @@ async function generateStep(
 	const source = await saveStep(scope, key, intent, outcome.code);
 	await recordChange(scope, { kind: "write", key, cause: "generate", source });
 
-	if (scope.delivery) {
-		throw new IntentRewindError(
-			`Saved .intent/${key}. ${provedOnRetry(scope.delivery)}`,
-		);
-	}
 	if (outcome.page === "dirty") {
 		throw new IntentRewindError(
 			`Saved .intent/${key}, but the page can't continue from here. ` +

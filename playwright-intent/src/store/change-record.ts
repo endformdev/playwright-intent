@@ -4,8 +4,8 @@ import type { ChangeDelivery } from "./changes";
 /** What each saved change is attached to its test as. */
 export const CHANGE_ATTACHMENT = "intent-change";
 
-/** Attached when a `propose()` retry passed and the library failed it. */
-export const PROOF_ATTACHMENT = "intent-proof";
+/** Attached when a `propose()` attempt passed and the library failed it. */
+export const PASSED_ATTACHMENT = "intent-passed";
 
 export type StepChangeCause = "repair" | "generate" | "regenerate";
 

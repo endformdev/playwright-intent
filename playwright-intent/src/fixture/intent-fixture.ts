@@ -4,7 +4,7 @@ import type { IntentUseOptions } from "../options";
 import { handleTestFailure } from "../step/handle-failure";
 import type { StepVariables } from "../step/intent-text";
 import {
-	failProvenProposal,
+	failPassedProposal,
 	startProposalTracking,
 } from "../step/record-change";
 import { runStep } from "../step/run-step";
@@ -63,7 +63,7 @@ export function createIntentTest<T extends typeof base>(testBase: T) {
 			await use(ai);
 
 			await handleTestFailure(scope, page);
-			await failProvenProposal(scope);
+			await failPassedProposal(scope);
 		},
 	});
 }

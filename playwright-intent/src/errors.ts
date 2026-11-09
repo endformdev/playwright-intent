@@ -13,8 +13,8 @@ export class IntentConfigError extends IntentError {}
 export class IntentChangeRejectedError extends IntentError {}
 
 /**
- * A retry proved the change `propose()` saved. The test stays red until someone
- * applies it, instead of Playwright calling it flaky and exiting 0.
+ * The test passed with a change `propose()` saved. It stays red until someone
+ * applies the change, instead of Playwright exiting 0.
  */
 export class IntentChangeProposedError extends IntentError {}
 

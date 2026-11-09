@@ -11,7 +11,7 @@ import { configDirectory, INTENT_DIRECTORY } from "../step/step-path";
 import {
 	CHANGE_ATTACHMENT,
 	type ChangeRecord,
-	PROOF_ATTACHMENT,
+	PASSED_ATTACHMENT,
 	parseChangeRecord,
 } from "../store/change-record";
 import {
@@ -38,6 +38,7 @@ export interface IntentReporterOptions {
 export default class IntentReporter implements Reporter {
 	readonly #outputFile?: string;
 	#directory = "";
+	#sharded = false;
 	#suite?: Suite;
 
 	constructor(options: IntentReporterOptions = {}) {
@@ -50,6 +51,7 @@ export default class IntentReporter implements Reporter {
 
 	onBegin(config: FullConfig, suite: Suite): void {
 		this.#directory = configDirectory(config);
+		this.#sharded = Boolean(config.shard);
 		this.#suite = suite;
 	}
 
@@ -75,9 +77,7 @@ export default class IntentReporter implements Reporter {
 				changes,
 				root,
 				env: process.env,
-				// Workers inherit the environment of `playwright test`, and they run
-				// model-written code, so only merge-reports may hold the token.
-				isolated: process.argv.includes("merge-reports"),
+				sharded: this.#sharded,
 			});
 		} catch (error) {
 			// merge-reports only exits non-zero when a reporter throws, and it only
@@ -97,10 +97,10 @@ async function readAttempt(result: TestResult): Promise<AttemptChanges> {
 		if (record) records.push(record);
 		else console.log("[intent] Ignored a step change record it couldn't read.");
 	}
-	const proved = result.attachments.some(
-		(attachment) => attachment.name === PROOF_ATTACHMENT,
+	const failedByPropose = result.attachments.some(
+		(attachment) => attachment.name === PASSED_ATTACHMENT,
 	);
-	return { passed: result.status === "passed" || proved, records };
+	return { passed: result.status === "passed" || failedByPropose, records };
 }
 
 async function attachmentText(
@@ -112,17 +112,17 @@ async function attachmentText(
 		: "";
 }
 
-function printChanges({ proven, unproven, diagnoses }: ChangeSet): void {
+function printChanges({ passed, failed, diagnoses }: ChangeSet): void {
 	const lines: string[] = [];
-	if (proven.length > 0) {
-		lines.push(`[intent] Proven step changes (${proven.length}):`);
-		lines.push(...proven.map(describeChange));
+	if (passed.length > 0) {
+		lines.push(`[intent] Step changes from passing tests (${passed.length}):`);
+		lines.push(...passed.map(describeChange));
 	}
-	if (unproven.length > 0) {
+	if (failed.length > 0) {
 		lines.push(
-			`[intent] Unproven step changes, left out (${unproven.length}):`,
+			`[intent] Step changes from failing tests, left out (${failed.length}):`,
 		);
-		lines.push(...unproven.map(describeChange));
+		lines.push(...failed.map(describeChange));
 	}
 	if (diagnoses.length > 0) {
 		lines.push(`[intent] Failures the agent left alone (${diagnoses.length}):`);

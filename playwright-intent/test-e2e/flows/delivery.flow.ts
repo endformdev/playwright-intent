@@ -6,6 +6,7 @@ import {
 	checkoutScript,
 	INTENT,
 	solved,
+	solvedButDirty,
 } from "../harness/shop-steps";
 
 const FIXED_ADD = CODE.add.replace("Add blue shirt", "Buy blue shirt");
@@ -47,61 +48,79 @@ test("${intent}", async ({ page, ai }) => {
 }
 
 flow.describe("commit and propose", () => {
-	flow(
-		"commit fails the attempt that saved a fix, and a retry proves it",
-		async ({ project }) => {
-			await generateCheckout(project);
-			await project.scriptAgent({ diagnose: { [INTENT.add]: [repairAdd()] } });
-
-			const run = await project.run({
-				shop: "renamed-add-link",
-				retries: 1,
-				changes: "commit",
-			});
-
-			const test = run.test(CHECKOUT_TEST);
-			expect(run.exitCode).toBe(0);
-			expect(test.outcome).toBe("flaky");
-			expect(test.attempts).toEqual(["failed", "passed"]);
-			expect(test.errors[0]).toContain("commit() proves a change");
-			expect(test.changes).toEqual([
-				{
-					attempt: 0,
-					version: 1,
-					kind: "write",
-					key: ADD_FILE,
-					cause: "repair",
-					reason: REASON,
-					source: expect.stringContaining("Buy blue shirt"),
-					delivery: "commit",
-				},
-			]);
-			expect((await project.changeSet()).proven).toMatchObject([
-				{ key: ADD_FILE, kind: "write", delivery: "commit" },
-			]);
-			expect(run.output).toContain("Proven step changes (1)");
-		},
-	);
-
-	flow("propose stays red once a retry proves the fix", async ({ project }) => {
+	flow("commit carries on after a ready fix", async ({ project }) => {
 		await generateCheckout(project);
 		await project.scriptAgent({ diagnose: { [INTENT.add]: [repairAdd()] } });
 
 		const run = await project.run({
 			shop: "renamed-add-link",
+			changes: "commit",
+		});
+
+		const test = run.test(CHECKOUT_TEST);
+		expect(run.exitCode).toBe(0);
+		expect(test.outcome).toBe("expected");
+		expect(test.attempts).toEqual(["passed"]);
+		expect(test.changes).toEqual([
+			{
+				attempt: 0,
+				version: 1,
+				kind: "write",
+				key: ADD_FILE,
+				cause: "repair",
+				reason: REASON,
+				source: expect.stringContaining("Buy blue shirt"),
+				delivery: "commit",
+			},
+		]);
+		expect((await project.changeSet()).passed).toMatchObject([
+			{ key: ADD_FILE, kind: "write", delivery: "commit" },
+		]);
+		expect(run.output).toContain("Step changes from passing tests (1)");
+	});
+
+	flow("commit retries after a dirty fix", async ({ project }) => {
+		await generateCheckout(project);
+		const repair = repairAdd();
+		await project.scriptAgent({
+			diagnose: {
+				[INTENT.add]: [
+					{ ...repair, decision: { ...repair.decision, page: "dirty" } },
+				],
+			},
+		});
+
+		const run = await project.run({
+			shop: "renamed-add-link",
 			retries: 1,
+			changes: "commit",
+		});
+
+		const test = run.test(CHECKOUT_TEST);
+		expect(run.exitCode).toBe(0);
+		expect(test.outcome).toBe("flaky");
+		expect(test.attempts).toEqual(["failed", "passed"]);
+		expect((await project.changeSet()).passed).toHaveLength(1);
+	});
+
+	flow("propose stays red once the fix passes", async ({ project }) => {
+		await generateCheckout(project);
+		await project.scriptAgent({ diagnose: { [INTENT.add]: [repairAdd()] } });
+
+		const run = await project.run({
+			shop: "renamed-add-link",
 			changes: "propose",
 		});
 
 		const test = run.test(CHECKOUT_TEST);
 		expect(run.exitCode).toBe(1);
 		expect(test.outcome).toBe("unexpected");
-		expect(test.attempts).toEqual(["failed", "failed"]);
-		expect(test.errors[1]).toContain("A retry proved the step changes");
+		expect(test.attempts).toEqual(["failed"]);
+		expect(test.errors[0]).toContain("The test passed with its step changes");
 		expect(test.changes).toMatchObject([
 			{ attempt: 0, key: ADD_FILE, delivery: "propose" },
 		]);
-		expect((await project.changeSet()).proven).toMatchObject([
+		expect((await project.changeSet()).passed).toMatchObject([
 			{ key: ADD_FILE, delivery: "propose" },
 		]);
 	});
@@ -122,11 +141,11 @@ flow.describe("commit and propose", () => {
 			"failed",
 		]);
 		expect(run.test(CHECKOUT_TEST).errors[2]).toContain(
-			"A retry proved the step changes",
+			"The test passed with its step changes",
 		);
-		// The last attempt fails before the test starts, so it records no trace steps.
+		// Later attempts fail before the test starts, so they record no trace steps.
 		expect(run.test(CHECKOUT_TEST).notes).toHaveLength(1);
-		expect((await project.changeSet()).proven).toHaveLength(1);
+		expect((await project.changeSet()).passed).toHaveLength(1);
 	});
 
 	flow(
@@ -147,22 +166,25 @@ flow.describe("commit and propose", () => {
 		},
 	);
 
-	flow("each generated step uses one retry", async ({ project }) => {
-		await project.scriptAgent(checkoutScript());
+	flow(
+		"several generated steps can land in one attempt",
+		async ({ project }) => {
+			await project.scriptAgent(checkoutScript());
 
-		const run = await project.run({ retries: 3, changes: "commit" });
+			const run = await project.run({ changes: "commit" });
 
-		const test = run.test(CHECKOUT_TEST);
-		expect(test.attempts).toEqual(["failed", "failed", "failed", "passed"]);
-		expect(test.changes).toMatchObject([
-			{ attempt: 0, key: ADD_FILE, cause: "generate" },
-			{ attempt: 1, key: CHECKOUT_FILE, cause: "generate" },
-			{ attempt: 2, key: PAY_FILE, cause: "generate" },
-		]);
-		expect((await project.changeSet()).proven).toHaveLength(3);
-	});
+			const test = run.test(CHECKOUT_TEST);
+			expect(test.attempts).toEqual(["passed"]);
+			expect(test.changes).toMatchObject([
+				{ attempt: 0, key: ADD_FILE, cause: "generate" },
+				{ attempt: 0, key: CHECKOUT_FILE, cause: "generate" },
+				{ attempt: 0, key: PAY_FILE, cause: "generate" },
+			]);
+			expect((await project.changeSet()).passed).toHaveLength(3);
+		},
+	);
 
-	flow("a regenerated step is proven as one change", async ({ project }) => {
+	flow("a regenerated step is delivered as one change", async ({ project }) => {
 		const script = checkoutScript();
 		await project.scriptAgent(script);
 		await project.run();
@@ -184,7 +206,7 @@ flow.describe("commit and propose", () => {
 
 		const run = await project.run({
 			shop: "renamed-add-link",
-			retries: 2,
+			retries: 1,
 			changes: "commit",
 		});
 
@@ -192,7 +214,7 @@ flow.describe("commit and propose", () => {
 			{ attempt: 0, kind: "delete", key: ADD_FILE, cause: "regenerate" },
 			{ attempt: 1, kind: "write", key: ADD_FILE, cause: "generate" },
 		]);
-		expect((await project.changeSet()).proven).toMatchObject([
+		expect((await project.changeSet()).passed).toMatchObject([
 			{ key: ADD_FILE, kind: "write", cause: "regenerate", reason: REASON },
 		]);
 	});
@@ -225,37 +247,25 @@ flow.describe("commit and propose", () => {
 			},
 		]);
 		const set = await project.changeSet();
-		expect(set.proven).toEqual([]);
+		expect(set.passed).toEqual([]);
 		expect(set.diagnoses).toMatchObject([{ reason: "Payments are down." }]);
 	});
 
-	flow("with no retries the model is never called", async ({ project }) => {
-		await project.scriptAgent(checkoutScript());
+	flow("a change whose test never passes is left out", async ({ project }) => {
+		await project.scriptAgent({
+			generate: { [INTENT.add]: [solvedButDirty(CODE.add)] },
+		});
 
 		const run = await project.run({ changes: "commit" });
 
-		expect(run.exitCode).toBe(1);
-		expect(run.test(CHECKOUT_TEST).errors[0]).toContain(
-			`commit() needs a retry to prove a step change, and this attempt has none left (generate: "${INTENT.add}")`,
+		expect(run.test(CHECKOUT_TEST).attempts).toEqual(["failed"]);
+		const set = await project.changeSet();
+		expect(set.passed).toEqual([]);
+		expect(set.failed).toMatchObject([{ key: ADD_FILE }]);
+		expect(run.output).toContain(
+			"Step changes from failing tests, left out (1)",
 		);
-		expect(await project.agentCalls()).toEqual([]);
 	});
-
-	flow(
-		"running out of retries leaves earlier changes unproven",
-		async ({ project }) => {
-			await project.scriptAgent(checkoutScript());
-
-			const run = await project.run({ retries: 1, changes: "commit" });
-
-			expect(run.test(CHECKOUT_TEST).attempts).toEqual(["failed", "failed"]);
-			expect(await project.agentCalls()).toHaveLength(1);
-			const set = await project.changeSet();
-			expect(set.proven).toEqual([]);
-			expect(set.unproven).toMatchObject([{ key: ADD_FILE }]);
-			expect(run.output).toContain("Unproven step changes, left out (1)");
-		},
-	);
 
 	for (const changes of ["allow", "refuse"] as const) {
 		flow(`${changes} attaches no records`, async ({ project }) => {
@@ -272,16 +282,16 @@ flow.describe("commit and propose", () => {
 				"intent-change",
 			);
 			expect(await project.changeSet()).toEqual({
-				proven: [],
-				unproven: [],
+				passed: [],
+				failed: [],
 				diagnoses: [],
 			});
-			expect(run.output).not.toContain("step changes");
+			expect(run.output).not.toContain("Step changes");
 		});
 	}
 
 	flow(
-		"merge-reports combines shards into one set of proven changes",
+		"merge-reports combines shards into one set of changes",
 		async ({ project }) => {
 			const second = "put the blue shirt in the cart";
 			const third = "grab the blue shirt";
@@ -325,16 +335,18 @@ flow.describe("commit and propose", () => {
 			const merged = await project.mergeReports();
 
 			const set = await project.changeSet();
-			expect(set.proven.map((change) => change.key)).toEqual([
+			expect(set.passed.map((change) => change.key)).toEqual([
 				ADD_FILE,
 				`tests/second.spec.ts/${second}/${second}.ts`,
 			]);
-			expect(set.unproven.map((change) => change.key)).toEqual([
+			expect(set.failed.map((change) => change.key)).toEqual([
 				`tests/third.spec.ts/${third}/${third}.ts`,
 			]);
 			expect(merged.test(CHECKOUT_TEST).changes).toHaveLength(1);
-			expect(merged.output).toContain("Proven step changes (2)");
-			expect(merged.output).toContain("Unproven step changes, left out (1)");
+			expect(merged.output).toContain("Step changes from passing tests (2)");
+			expect(merged.output).toContain(
+				"Step changes from failing tests, left out (1)",
+			);
 		},
 	);
 });

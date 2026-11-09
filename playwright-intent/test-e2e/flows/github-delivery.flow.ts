@@ -16,12 +16,8 @@ const FIXED_ADD = CODE.add.replace("Add blue shirt", "Buy blue shirt");
 const ADD_FILE = `tests/checkout.spec.ts/checkout - guest buys a shirt/${INTENT.add}.ts`;
 const REPO_FILE = `.intent/${ADD_FILE}`;
 
-/** A run with a broken step that the agent repairs, ready to be merged. */
-async function repairInShard(
-	project: Project,
-	github: FakeGitHub,
-	changes: "commit" | "propose",
-) {
+/** Generates the steps, then scripts a repair for one that's about to break. */
+async function breakStep(project: Project, github: FakeGitHub) {
 	await project.scriptAgent(checkoutScript());
 	await project.run();
 	github.files.set(REPO_FILE, await project.readStep(ADD_FILE));
@@ -40,6 +36,15 @@ async function repairInShard(
 			],
 		},
 	});
+}
+
+/** A run with a broken step that the agent repairs, ready to be merged. */
+async function repairInShard(
+	project: Project,
+	github: FakeGitHub,
+	changes: "commit" | "propose",
+) {
+	await breakStep(project, github);
 	return project.run({
 		shop: "renamed-add-link",
 		retries: 1,
@@ -189,13 +194,30 @@ flow.describe("delivering through GitHub", () => {
 	});
 
 	flow(
-		"a plain test run never delivers, even with a token",
+		"a run that isn't sharded delivers itself",
 		async ({ project, github }) => {
-			await repairInShard(project, github, "commit");
+			await breakStep(project, github);
+
+			const run = await project.run({
+				shop: "renamed-add-link",
+				changes: "commit",
+				github,
+			});
+
+			expect(run.exitCode).toBe(0);
+			expect(github.commits).toHaveLength(1);
+			expect(run.output).not.toContain("delivery-token");
+		},
+	);
+
+	flow(
+		"one shard leaves delivery to merge-reports",
+		async ({ project, github }) => {
+			const run = await repairInShard(project, github, "commit");
 
 			expect(github.requests).toEqual([]);
-			const set = await project.changeSet();
-			expect(set.proven).toHaveLength(1);
+			expect(run.output).toContain("Not delivering from one shard");
+			expect((await project.changeSet()).passed).toHaveLength(1);
 		},
 	);
 
