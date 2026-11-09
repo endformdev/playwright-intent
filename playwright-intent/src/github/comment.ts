@@ -22,7 +22,7 @@ export function renderProposalComment({
 
 	if (proposals.length > 0) {
 		sections.push(
-			`### Proposed Playwright Intent step fixes\n\nAn automatic fix was found for the following failing Playwright end-to-end tests at\`${sha.slice(0, 7)}\`. These changes need applying for the tests to pass.`,
+			`### Proposed Playwright Intent step fixes\n\nAn automatic fix was found for the following failing Playwright end-to-end tests at commit \`${sha.slice(0, 7)}\`. These changes need applying for the tests to pass.`,
 			proposals.map(describeProposal).join("\n"),
 		);
 		sections.push(applyInstructions(patch));
