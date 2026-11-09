@@ -12,6 +12,12 @@ export class IntentConfigError extends IntentError {}
 /** The `changes` policy stopped a step from changing. */
 export class IntentChangeRejectedError extends IntentError {}
 
+/**
+ * The test passed with a change `propose()` saved. It stays red until someone
+ * applies the change, instead of Playwright exiting 0.
+ */
+export class IntentChangeProposedError extends IntentError {}
+
 /** Two `ai.do` calls in one test sanitize to the same step file. */
 export class IntentDuplicateStepError extends IntentError {}
 

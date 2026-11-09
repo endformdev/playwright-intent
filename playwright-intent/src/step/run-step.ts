@@ -17,13 +17,14 @@ import {
 } from "../errors";
 import { readTestFile } from "../fixture/test-file";
 import type { TestScope } from "../fixture/test-scope";
-import { materializeStep } from "../store/file-store";
+import { materializeStep } from "../store/local-files";
 import { handleStepFailure } from "./handle-failure";
 import {
 	assertVariablesMatch,
 	placeholderNames,
 	type StepVariables,
 } from "./intent-text";
+import { recordChange } from "./record-change";
 import { saveStep } from "./save-step";
 import { parseStepCode, parseStepHeader } from "./step-file";
 import { stepKey } from "./step-path";
@@ -168,12 +169,7 @@ async function generateStep(
 	intent: string,
 	line: number | undefined,
 ): Promise<string> {
-	await scope.changePolicy.check({
-		type: "generate",
-		test: scope.testTitle,
-		intent,
-		key,
-	});
+	await scope.checkChange({ type: "generate", intent, key });
 	if (!scope.agent) {
 		throw new IntentNoAgentError(
 			`Generating "${intent}" needs use.intent.model in playwright.config.ts.`,
@@ -214,7 +210,8 @@ async function generateStep(
 		);
 	}
 
-	await saveStep(scope, key, intent, outcome.code);
+	const source = await saveStep(scope, key, intent, outcome.code);
+	await recordChange(scope, { kind: "write", key, cause: "generate", source });
 
 	if (outcome.page === "dirty") {
 		throw new IntentRewindError(

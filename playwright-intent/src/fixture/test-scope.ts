@@ -10,8 +10,13 @@ import {
 	type IntentOptions,
 } from "../options";
 import type { RunningStep } from "../step/handle-failure";
-import { INTENT_DIRECTORY } from "../step/step-path";
-import { type NamedChangePolicy, resolveChangePolicy } from "../store/changes";
+import { configDirectory, INTENT_DIRECTORY } from "../step/step-path";
+import {
+	type ChangeDelivery,
+	deliveryOf,
+	resolveChangePolicy,
+	type StepChange,
+} from "../store/changes";
 import type { IntentStore } from "../store/store";
 
 /** Everything the steps of one test attempt share. */
@@ -19,7 +24,12 @@ export interface TestScope {
 	/** Null without a model, and under `refuse()`, where no step can change. */
 	agent: IntentAgent | null;
 	store: IntentStore;
-	changePolicy: NamedChangePolicy;
+	/** Throws if the `changes` policy doesn't allow this change. */
+	checkChange(
+		change: Pick<StepChange, "type" | "intent" | "key">,
+	): void | Promise<void>;
+	/** Set when saved changes are handed to the reporter. */
+	delivery: ChangeDelivery | null;
 	limits: IntentLimits;
 	session: SessionOptions;
 	testInfo: TestInfo;
@@ -64,11 +74,11 @@ export function createTestScope(
 				"be combined with use.intent.agent.",
 		);
 	}
+	const root = configDirectory(testInfo.config);
 	const changePolicy = resolveChangePolicy(options.store.changes);
-	const configFile = testInfo.config.configFile;
-	const root = configFile ? path.dirname(configFile) : testInfo.config.rootDir;
-	const intentRoot = path.join(root, INTENT_DIRECTORY);
 	const titles = testInfo.titlePath.slice(1);
+	const testTitle = titles.join(" > ");
+	const intentRoot = path.join(root, INTENT_DIRECTORY);
 
 	return {
 		agent:
@@ -79,14 +89,15 @@ export function createTestScope(
 						? createAiSdkAgent(options.model, options.prompts)
 						: null)),
 		store: options.store.open(intentRoot),
-		changePolicy,
+		checkChange: (change) => changePolicy.check({ ...change, test: testTitle }),
+		delivery: deliveryOf(changePolicy),
 		limits: { ...DEFAULT_LIMITS, ...options.limits },
 		session,
 		testInfo,
 		request,
 		testFile: path.relative(root, testInfo.file),
 		titles,
-		testTitle: titles.join(" > "),
+		testTitle,
 		claimedKeys: new Set(),
 		finishedSteps: [],
 		currentStep: null,

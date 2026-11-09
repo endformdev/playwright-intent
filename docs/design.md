@@ -42,12 +42,15 @@ Code always runs from disk, because Playwright reads the file for snippets and t
 
 - `allow()` lets the agent generate missing steps and diagnose failures, and its changes stay on disk to review and commit.
 - `refuse()` never runs the agent. A missing step throws `IntentChangeRejectedError`, and a failing step is an ordinary test failure.
+- `commit()` and `propose()` allow the change and leave a record for the reporter. See [Delivering changes](#delivering-changes).
 
 Built-in policies are named values rather than plain functions, so the library knows which one is active and can tell a reporter. A custom function can still decide permission, but it can't deliver anything. One that throws for `diagnose` generates steps and leaves failures alone: the test keeps its own error, and the rejection is reported.
 
 A `{ local, ci }` pair keeps CI from being forgotten. A job that needs something else, like a nightly self-heal, can use plain JS in the config.
 
 Playwright's types make every `use` key optional, so the fixture also throws `IntentConfigError` when `store` is missing.
+
+`fileStore` and the built-in policies have their own entry point, `playwright-intent/file-store`, so they can be used without loading Playwright's test runner. `openFileStore(root)` is the plain store with no policy, which is what the reporter reads with.
 
 ## Generating steps
 
@@ -67,7 +70,7 @@ Each task includes the test file as it is on disk, with the line of the current 
 | `solved`, `dirty` | Yes   | Fails, and a retry replays it |
 | `failed`          | No    | Fails                         |
 
-The first normal replay proves a generated step works.
+The first normal replay shows whether a generated step works.
 
 ## Regenerating steps
 
@@ -102,6 +105,58 @@ When failures can be diagnosed, a replayed step gets a 15 second action timeout 
 
 A repair that changes a step's assertions is listed in the run output, but isn't blocked.
 
+## Delivering changes
+
+With `allow()` or `refuse()` none of this happens: there are no records, and no test fails on purpose.
+
+In CI, `refuse()` stays red until someone reruns locally, and `allow()` goes green on code nobody reviewed that's lost with the machine. `commit()` and `propose()` make CI produce a fix someone can review.
+
+Saved changes follow the same rule as any other run: `ready` carries on in the same attempt, and `dirty` fails it so a retry can replay from a clean page. A change is delivered if its test ended up passing. Its code may not have been replayed as a whole yet, so the next CI run on the branch is what replays it.
+
+| Policy      | Once the test passes                          | Run                    |
+| ----------- | --------------------------------------------- | ---------------------- |
+| `commit()`  | Nothing more. It's flaky if it needed a retry | Green                  |
+| `propose()` | The fixture's teardown fails the attempt      | Red until it's applied |
+
+The worker attaches an `intent-change` record for each write, delete and diagnosis. A write's record includes the step's source, so the report alone carries a run's changes. The delivery job doesn't need `.intent` restored, and a shard's out-of-date copy can't replace another shard's fix. `delivery` is in the record because a reporter under `merge-reports` can't read `use.intent`.
+
+For `propose()`, a marker in the project's output folder records that the test saved a change, because a retry is a new process. That tells a passing retry from a normal flaky test. The first attempt clears it, so nothing carries over between runs. An attempt that passed and was failed on purpose attaches `intent-passed`, so the reporter knows it passed, and any retries left fail straight away.
+
+An attempt only gets one diagnosis, so each broken step past the first needs a retry, as does anything `dirty`. A test that runs out of retries fails, and its changes are left out.
+
+### The reporter
+
+```ts
+reporter: [["list"], ["playwright-intent/reporter"]],
+```
+
+Gathering a run's fixes needs something that sees every test. A reporter is the only hook that works on plain Playwright, sharded CI and Endform: `globalTeardown` runs before results exist, and Endform removes it on lambdas. `playwright merge-reports` runs reporters too, so sharded CI gets one set of changes. Playwright's plugin hook, `config["@playwright/test"].plugins`, is private and wouldn't run under `merge-reports`.
+
+It's an explicit line, and only `commit()` and `propose()` need it. The fixture doesn't check for it, because a sharded run's reporter is in the merge job.
+
+- A change counts as passed when an attempt saved it and that attempt or a later one of the same test passed.
+- Browser projects share steps, so a file that a failed test also wrote is left out.
+- Only keys inside `.intent` count. Records come from workers that run model-written code.
+- Repository paths come from `config.configFile`, which `merge-reports` sets from `-c`.
+
+The reporter prints the changes from passing and failing tests, and the diagnoses.
+
+### Delivering through GitHub
+
+On a `pull_request` run in GitHub Actions, the reporter delivers the changes from passing tests:
+
+- `commit()` creates one commit on the pull request's head through the API. A `pull_request` run checks out a merge commit, so a plain `git push` would push the wrong thing. If the head has moved since the tests ran, nothing is committed.
+- `propose()` keeps one comment up to date, describing each fix above a collapsed patch built as a `git diff` against the pull request's head. Inline suggestions won't work, because the broken step file usually isn't in the pull request's diff. Failures the agent left alone are listed there too, and when a later run has nothing to propose the comment says so.
+
+| Policy      | `permissions:`         | Notes                                      |
+| ----------- | ---------------------- | ------------------------------------------ |
+| `propose()` | `pull-requests: write` | Nothing lands until a person applies it    |
+| `commit()`  | `contents: write`      | The bot's commit needs its CI run approved |
+
+A run delivers from the job that ran the tests, so a single job with the permissions above and `GITHUB_TOKEN` is enough. One shard only sees part of a run, so it never delivers. Sharded runs, and Endform's CI job, deliver from `playwright merge-reports`, with the reporter in the config passed to `-c`.
+
+Pull requests from forks and Dependabot get a read-only token and no secrets, so both policies act as `refuse()` there.
+
 ## Defaults taken for the MVP
 
 - `ai.do` returns nothing. Hand-written Playwright reads values from the page.
@@ -114,7 +169,6 @@ A repair that changes a step's assertions is listed in the run output, but isn't
 See [open-questions.md](open-questions.md) for postponed questions, and [step-quality.md](step-quality.md) for what trials showed about the agent's code. Also postponed:
 
 - `cache-api`, remote stores, branch handling and review flows. Retries read what a run just generated, so a shared remote store needs a way to hold changes until they're accepted.
-- Handling a run's changes as a batch, like a pull request comment. See [Run-level change handling](#run-level-change-handling).
 - Sharing steps between tests, and separate caches per browser project.
 - Pruning orphaned files, and letting steps import helpers.
 - A CLI, a summary reporter, and type-checking step files.
@@ -122,15 +176,6 @@ See [open-questions.md](open-questions.md) for postponed questions, and [step-qu
 - Sending screenshots to OpenAI-compatible providers. By default they stringify tool results, so `look` would send base64 text unless `supportsMultiPartToolContent` is set.
 - Parallel tool calls on providers other than OpenAI, where a model could call `run` and `finish` in the same turn.
 - Replacing a step mid-process. Node caches each import, so a test that repeats in the same worker after a repair, with `--repeat-each`, replays the old code until the next process.
-
-### Run-level change handling
-
-The `changes` policy is checked per change in a worker, so it can't see a whole run. A pull request comment needs a reporter:
-
-- Workers attach each change to its test, and the reporter collects them in `onTestEnd` and delivers them in `onEnd`.
-- `defineConfig` from `playwright-intent` will be required, because it's how we add global hooks like this reporter without a second config line. It's a plain re-export until the first hook needs it. The fixture can then read `testInfo.config.reporter` and fail loudly if it's missing.
-- `playwright merge-reports` runs reporters too, so sharded CI gets one comment.
-- Playwright also has a plugin hook, `config["@playwright/test"].plugins`, with `setup` and `teardown`. It's private, and it wouldn't run under `merge-reports`, so we shouldn't use it.
 
 ### Using a ChatGPT plan
 

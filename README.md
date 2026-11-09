@@ -40,13 +40,8 @@ npm install -D playwright-intent
 
 ```ts
 // playwright.config.ts
-import {
-	allow,
-	defineConfig,
-	fileStore,
-	type IntentUseOptions,
-	refuse,
-} from "playwright-intent";
+import { defineConfig, type IntentUseOptions } from "playwright-intent";
+import { allow, fileStore, refuse } from "playwright-intent/file-store";
 
 export default defineConfig<IntentUseOptions>({
 	use: {
@@ -110,12 +105,13 @@ So far, generated steps have only been tried with `openai/gpt-6-luna`.
 
 ## Stores and changes
 
-`fileStore` keeps steps in `.intent` beside your Playwright config.
+`fileStore` keeps steps in `.intent` beside your Playwright config. It and the policies below all come from `playwright-intent/file-store`.
 
 A store always needs `changes`, because a change that nobody keeps is lost. A step generated on a CI machine disappears with it, unless you've decided what should happen. `changes` is a policy checked before the agent starts:
 
 - `allow()` lets the agent write missing steps and diagnose failing ones, and leaves its changes on disk for you to review and commit.
 - `refuse()` never calls the model. A missing step fails the test, and a failing step fails like any other test.
+- `commit()` and `propose()` let the agent make changes and deliver them to the pull request. See [Regenerating intent steps in CI](#regenerating-intent-steps-in-ci).
 
 Pass one policy to use it everywhere, or `{ local, ci }` to choose by whether the `CI` environment variable is set:
 
@@ -135,6 +131,43 @@ fileStore({
 ```
 
 To regenerate steps, delete their files from `.intent`, and the next run writes them again.
+
+`openFileStore(root)` from `playwright-intent/file-store` is the store on its own, for scripts that need to read `.intent` outside a test.
+
+### Regenerating intent steps in CI
+
+`commit()` and `propose()` are for CI runs that should produce a fix rather than lose it. The agent works as it does anywhere else, and the reporter delivers the changes from tests that end up passing:
+
+- `commit()` adds one commit to the pull request, and the test passes. The bot's commit needs its CI run approved.
+- `propose()` leaves a comment with a patch to paste, and the test stays red until it's applied.
+
+Add the reporter to your config, and keep `retries` at 1 or more, because the agent sometimes needs a clean page to carry on from:
+
+```ts
+reporter: [["list"], ["playwright-intent/reporter"]],
+```
+
+Then give the job that runs your tests permission to deliver:
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # For commit()
+      pull-requests: write # For propose()
+    steps:
+      - uses: actions/checkout@v5
+      # Install dependencies and browsers, then:
+      - run: npx playwright test
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+```
+
+Sharded runs deliver from `playwright merge-reports` instead. See [the design notes](docs/design.md#delivering-through-github).
+
+Pull requests from forks and Dependabot get a read-only token and no secrets, so both policies act as `refuse()` there.
 
 ## Prompts
 

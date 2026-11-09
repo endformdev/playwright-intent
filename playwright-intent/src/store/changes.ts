@@ -1,4 +1,5 @@
 import { IntentChangeRejectedError } from "../errors";
+import { isReadOnlyPullRequest } from "../github/pull-request";
 
 /** Something the library is about to do that could change saved steps. */
 export interface StepChange {
@@ -21,9 +22,12 @@ export interface StepChange {
  */
 export type ChangeCheck = (change: StepChange) => void | Promise<void>;
 
+/** Policies that hand a run's changes to the reporter. */
+export type ChangeDelivery = "commit" | "propose";
+
 /** A policy the library can identify. `custom` is a user's own function. */
 export interface NamedChangePolicy {
-	readonly name: "allow" | "refuse" | "custom";
+	readonly name: "allow" | "refuse" | "custom" | ChangeDelivery;
 	readonly check: ChangeCheck;
 }
 
@@ -56,13 +60,37 @@ export function refuse(): NamedChangePolicy {
 	};
 }
 
+/**
+ * Lets the agent make changes, and the reporter commits the ones from passing
+ * tests to the pull request branch.
+ */
+export function commit(): NamedChangePolicy {
+	return { name: "commit", check: () => {} };
+}
+
+/**
+ * Lets the agent make changes, but the test stays red. The reporter collects
+ * the ones from passing tests for a person to apply.
+ */
+export function propose(): NamedChangePolicy {
+	return { name: "propose", check: () => {} };
+}
+
+/** Null for policies that leave changes where they are. */
+export function deliveryOf(policy: NamedChangePolicy): ChangeDelivery | null {
+	return policy.name === "commit" || policy.name === "propose"
+		? policy.name
+		: null;
+}
+
 export function resolveChangePolicy(
 	changes: Changes,
 	env: NodeJS.ProcessEnv = process.env,
 ): NamedChangePolicy {
 	const policy =
 		"local" in changes ? (env.CI ? changes.ci : changes.local) : changes;
-	return typeof policy === "function"
-		? { name: "custom", check: policy }
-		: policy;
+	const named: NamedChangePolicy =
+		typeof policy === "function" ? { name: "custom", check: policy } : policy;
+	// A fork's token can't deliver, and it has no model key to make a change.
+	return deliveryOf(named) && isReadOnlyPullRequest(env) ? refuse() : named;
 }

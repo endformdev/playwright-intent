@@ -1,3 +1,5 @@
+import path from "node:path";
+
 export const INTENT_DIRECTORY = ".intent";
 
 const MAX_SEGMENT_BYTES = 150;
@@ -14,6 +16,14 @@ export interface StepIdentity {
 	titles: string[];
 	/** The intent template, with placeholders left in. */
 	intent: string;
+}
+
+/** Where relative paths start: beside the Playwright config. */
+export function configDirectory(config: {
+	configFile?: string;
+	rootDir: string;
+}): string {
+	return config.configFile ? path.dirname(config.configFile) : config.rootDir;
 }
 
 /**

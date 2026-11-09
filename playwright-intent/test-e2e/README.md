@@ -19,13 +19,13 @@ So the unit of testing is a run, and a flow is a sequence of runs.
 
 Every case is forced with one of five levers, so no flow depends on timing or luck:
 
-| Lever     | How                            | Forces                                                                  |
-| --------- | ------------------------------ | ----------------------------------------------------------------------- |
-| The agent | `project.scriptAgent()`        | Every outcome: solved, dirty, failed, and each failure decision         |
-| The app   | `project.run({ shop })`        | Stale steps, redesigns and real bugs, by changing the shop between runs |
-| The tests | `project.replaceInFile()`      | Reworded intents, renamed tests, moved steps                            |
-| The run   | `project.run({ retries, ci })` | Retries, and `refuse()` on CI                                           |
-| The cache | `project.writeStep()`          | Corrupted or conflicting step files                                     |
+| Lever     | How                                            | Forces                                                                  |
+| --------- | ---------------------------------------------- | ----------------------------------------------------------------------- |
+| The agent | `project.scriptAgent()`                        | Every outcome: solved, dirty, failed, and each failure decision         |
+| The app   | `project.run({ shop })`                        | Stale steps, redesigns and real bugs, by changing the shop between runs |
+| The tests | `project.replaceInFile()`                      | Reworded intents, renamed tests, moved steps                            |
+| The run   | `project.run({ retries, ci, changes, shard })` | Retries, CI, change policies and sharding                               |
+| The cache | `project.writeStep()`                          | Corrupted or conflicting step files                                     |
 
 The usual pattern mirrors real life: generate against the `baseline` shop, change the shop, then run again.
 
@@ -39,6 +39,7 @@ Only things a user could see from the outside:
 - The files in `.intent`.
 - Every agent call, including exactly what the agent was told.
 - Trace contents: action lines and embedded sources.
+- What the reporter collected: its output, and the change set it writes.
 
 ## Layout
 

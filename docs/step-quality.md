@@ -107,6 +107,6 @@ To see the problems from before the rules, check out `3f2876e`, which has the ea
 ## What to decide later
 
 1. **Should something check saved code?** Warning in the run output is cheaper and less risky than blocking, and could reuse the patterns in `scan_steps.py`. Blocking could trap a legitimate step.
-2. **Should a repair be proven from a clean page before it's trusted?** A `ready` repair currently continues without ever replaying from the step's starting point. Treating every repair as `dirty` would prove it on the retry, at the cost of one retry each.
+2. **Should a repair be replayed from a clean page before it's trusted?** A `ready` repair currently continues without ever replaying from the step's starting point. Treating every repair as `dirty` would replay it on the retry, at the cost of one retry each.
 3. **Should trials become a repeatable evaluation?** They could run across several models before a release, with `scan_steps.py` as part of the score.
 4. **Should a person have to accept repairs?** For example, the agent could save repairs for review rather than letting them run straight away.

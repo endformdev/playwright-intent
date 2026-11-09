@@ -3,6 +3,10 @@ import { registerStepLoader } from "../loader/step-loader";
 import type { IntentUseOptions } from "../options";
 import { handleTestFailure } from "../step/handle-failure";
 import type { StepVariables } from "../step/intent-text";
+import {
+	failPassedProposal,
+	startProposalTracking,
+} from "../step/record-change";
 import { runStep } from "../step/run-step";
 import { callLineIn } from "./test-file";
 import { createTestScope } from "./test-scope";
@@ -44,6 +48,8 @@ export function createIntentTest<T extends typeof base>(testBase: T) {
 				testIdAttribute,
 			});
 
+			await startProposalTracking(scope);
+
 			const actionsFor = (target: Page): IntentActions => ({
 				do: (text, vars = {}) => {
 					const line = callLineIn(testInfo.file);
@@ -57,6 +63,7 @@ export function createIntentTest<T extends typeof base>(testBase: T) {
 			await use(ai);
 
 			await handleTestFailure(scope, page);
+			await failPassedProposal(scope);
 		},
 	});
 }

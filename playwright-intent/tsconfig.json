@@ -8,7 +8,9 @@
 		"emitDeclarationOnly": true,
 		"outDir": "lib",
 		"paths": {
-			"playwright-intent": ["./src/index.ts"]
+			"playwright-intent": ["./src/index.ts"],
+			"playwright-intent/file-store": ["./src/store/file-store.ts"],
+			"playwright-intent/reporter": ["./src/reporter/reporter.ts"]
 		}
 	},
 	"include": [
