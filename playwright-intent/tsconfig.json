@@ -10,9 +10,15 @@
 		"paths": {
 			"playwright-intent": ["./src/index.ts"],
 			"playwright-intent/file-store": ["./src/store/file-store.ts"],
-			"playwright-intent/reporter": ["./src/reporter/reporter.ts"]
+			"playwright-intent/remote-store": ["./src/remote-store/remote-store.ts"],
+			"playwright-intent/reporter": ["./src/reporter/reporter.ts"],
+			"@playwright-intent/cache-api": ["../cache-api/src/index.ts"],
+			"@playwright-intent/cache-api/file-system": [
+				"../cache-api/src/storage/file-system.ts"
+			]
 		}
 	},
+	"references": [{ "path": "../cache-api" }],
 	"include": [
 		"src/**/*",
 		"test-unit/**/*",

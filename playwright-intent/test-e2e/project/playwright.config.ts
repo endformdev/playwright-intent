@@ -15,19 +15,21 @@ import {
 	refuse,
 	type UpdatePolicy,
 } from "playwright-intent/file-store";
-import { createRemoteStore } from "./remote-store";
+import { remoteStore, shared } from "playwright-intent/remote-store";
 import { createScriptedAgent } from "./scripted-agent";
 import { createScriptedModel, readModelScript } from "./scripted-model";
 
 const {
 	INTENT_E2E_BLOB,
+	INTENT_E2E_CACHE_TOKEN,
+	INTENT_E2E_CACHE_URL,
 	INTENT_E2E_DIAGNOSE_PROMPT,
 	INTENT_E2E_FAILURE_CONTEXT,
 	INTENT_E2E_GENERATE_PROMPT,
 	INTENT_E2E_NO_AGENT,
+	INTENT_E2E_NO_REPORTER,
 	INTENT_E2E_NO_REPORTER_OPTIONS,
 	INTENT_E2E_NO_STORE,
-	INTENT_E2E_REMOTE_DIR,
 	INTENT_E2E_UPDATES,
 } = process.env;
 
@@ -48,10 +50,21 @@ const updates: FileStoreUpdates = POLICIES[INTENT_E2E_UPDATES ?? ""]?.() ?? {
 function storeProvider(): IntentStoreProvider {
 	// Flows use this to check the error for a config without a store.
 	if (INTENT_E2E_NO_STORE) return undefined as never;
-	const store = fileStore({ updates });
-	if (!INTENT_E2E_REMOTE_DIR) return store;
-	const directory = INTENT_E2E_REMOTE_DIR;
-	return { ...store, open: () => createRemoteStore(directory) };
+	if (INTENT_E2E_CACHE_URL) {
+		return remoteStore({
+			url: INTENT_E2E_CACHE_URL,
+			token: INTENT_E2E_CACHE_TOKEN,
+			updates: shared(),
+		});
+	}
+	return fileStore({ updates });
+}
+
+function intentReporter() {
+	if (INTENT_E2E_NO_REPORTER) return [];
+	return INTENT_E2E_NO_REPORTER_OPTIONS
+		? ([["playwright-intent/reporter"]] as const)
+		: ([["playwright-intent/reporter", intent]] as const);
 }
 
 /** `{default}` stands for the built-in text, so flows can build on it. */
@@ -88,9 +101,7 @@ export default defineConfig<IntentUseOptions>({
 	expect: { timeout: 1_000 },
 	reporter: [
 		["json", { outputFile: "report.json" }],
-		INTENT_E2E_NO_REPORTER_OPTIONS
-			? ["playwright-intent/reporter"]
-			: ["playwright-intent/reporter", intent],
+		...intentReporter(),
 		...(INTENT_E2E_BLOB ? ([["blob"]] as const) : []),
 	],
 	use: {

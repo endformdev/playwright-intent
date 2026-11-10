@@ -7,6 +7,7 @@ export default defineConfig({
 	entry: {
 		index: "./src/index",
 		"file-store": "./src/store/file-store",
+		"remote-store": "./src/remote-store/remote-store",
 		reporter: "./src/reporter/reporter",
 	},
 	fixedExtension: true,

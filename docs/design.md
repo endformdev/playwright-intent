@@ -32,7 +32,7 @@ Steps receive `{ page, context, request, expect, vars }` and may only use `impor
 
 Playwright's Babel transform shifts line numbers, and it can't map them back for files imported during a test. A `registerHooks` load hook takes over `.intent/*.ts`, and `stripTypeScriptTypes` removes types without moving any lines.
 
-Code always runs from disk, because Playwright reads the file for snippets and trace sources. A remote store fills `.intent` just before each import.
+Code always runs from disk, because Playwright reads the file for snippets and trace sources. A remote store fills `.intent` before the first step runs.
 
 ## Storing steps
 
@@ -40,7 +40,9 @@ One intent options object goes to both `use.intent` and the reporter's options. 
 
 `store` is required, and it decides two things: whether the agent may change steps in this run, and what keeps a change once it's made. A generated step is only useful if something keeps it, and that depends on where the run happens, so nobody should get it by default. For the file store that's `updates`, and a file store can't be set up without it.
 
-A store provider has `open(root)`, which the worker reads and writes steps through, `updates(env)`, which tells the fixture whether the agent may run and how a change is kept, and an optional `deliver`, which the reporter calls with the run's changes.
+A store provider has `open(root)`, which the worker reads and writes steps through, `updates(env)`, which tells the fixture whether the agent may run and how a change is kept, and two optional reporter hooks: `prepare`, which the reporter starts as soon as it's created, and `deliver`, which it calls with the run's changes.
+
+There are two stores, and they're different concepts. For the file store, `updates` decides how a change avoids being lost. A remote store always keeps changes, and its `updates` only decides where they go. See [Remote stores](#remote-stores).
 
 `updates` is one policy, or `{ local, ci }` chosen by the `CI` environment variable. The worker and the reporter each resolve it from their own environment.
 
@@ -55,6 +57,34 @@ A `{ local, ci }` pair keeps CI from being forgotten. A job that needs something
 Playwright's types make every `use` key optional, so the fixture also throws `IntentConfigError` when `store` is missing.
 
 `fileStore` and the built-in policies have their own entry point, `playwright-intent/file-store`, so they can be used without loading Playwright's test runner. `openFileStore(root)` is the plain store with no policy.
+
+### Remote stores
+
+`remoteStore` from `playwright-intent/remote-store` keeps steps in `@playwright-intent/cache-api`, an H3 library over S3-compatible storage, built like `@playwright-opentelemetry/trace-api`. The bucket's credentials stay on the API's server. The store's `token` only authenticates to the API, and it never goes into attachments.
+
+Storage is one zip per scope, not one object per test. Steps average about 565 bytes compressed, so 6,000 steps is roughly 3 MB, and one request fetches all of them. `shared()` uses one scope, `main.zip`, for every branch.
+
+**Downloading.** `.intent` on disk is what runs, for both stores. The reporter is the first thing Playwright creates, before output folders are cleared, before global setup and web servers, and before tests load, so it fills `.intent` from there:
+
+1. The reporter calls `prepare`, without waiting for it. It does under `merge-reports` and `--list` too, which don't need the steps. Only workers read the result, so a failed download there changes nothing.
+2. `prepare` points an environment variable at a status file in a temp folder. Workers are forked after the reporter's `onBegin` with the runner's environment, so they inherit it.
+3. It downloads `main.zip` and unpacks it into `.intent`, skipping any test folder already on disk, so local work wins. In CI, `.intent` is empty.
+4. It writes `done`, or the error, to the status file.
+
+The worker's store is the file store, but its first read waits for that status. Without the variable, the reporter wasn't set up, so it throws `IntentConfigError`. A reporter given no options also throws in `onBegin` when a project's store has `prepare`.
+
+A 404 means there are no steps yet. Any other failure is an `IntentStoreError` in every test, so an outage can't trigger regeneration. A step deleted for regeneration has no copy left on disk, so nothing brings it back during the run.
+
+**Uploading.** A remote store's `updates(env)` never refuses, delivers when `CI` is set, and never awaits review, so local runs never upload. Forks and Dependabot have no secrets, so they don't deliver either. In `deliver`, the reporter:
+
+1. Skips a shard, because `merge-reports` delivers the whole run.
+2. Fetches the current zip, so it only changes what this run changed.
+3. Applies the writes and deletes from passing tests, using the source in each record.
+4. Uploads the zip.
+
+There are no locks between workers and no `If-Match`. If two runs upload at once, the last write wins, and the lost steps are regenerated on a later run.
+
+A run costs one GET, plus a GET and a PUT when it changed something. R2 charges $0.36 per million reads and $4.50 per million writes, and deletes and egress are free.
 
 ## Generating steps
 
@@ -172,7 +202,8 @@ Pull requests from forks and Dependabot get a read-only token and no secrets, so
 
 See [open-questions.md](open-questions.md) for postponed questions, and [step-quality.md](step-quality.md) for what trials showed about the agent's code. Also postponed:
 
-- `cache-api`, remote stores, branch handling and review flows. Retries read what a run just generated, so a shared remote store needs a way to hold changes until they're accepted.
+- Branch handling for remote stores: `isolated()`, which keeps a branch's changes in its own zip on top of main, and `merged()`, which promotes them after the merge. Also `prComment()`, to post what changed on the pull request.
+- Pruning test folders from `main.zip` once their tests are renamed or deleted, so it can't grow forever.
 - Sharing steps between tests, and separate caches per browser project.
 - Pruning orphaned files, and letting steps import helpers.
 - A CLI, a summary reporter, and type-checking step files.

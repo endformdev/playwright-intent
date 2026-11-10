@@ -17,15 +17,16 @@ So the unit of testing is a run, and a flow is a sequence of runs.
 
 ## Forcing each case
 
-Every case is forced with one of five levers, so no flow depends on timing or luck:
+Every case is forced with one of six levers, so no flow depends on timing or luck:
 
-| Lever     | How                                            | Forces                                                                  |
-| --------- | ---------------------------------------------- | ----------------------------------------------------------------------- |
-| The agent | `project.scriptAgent()`                        | Every outcome: solved, dirty, failed, and each failure decision         |
-| The app   | `project.run({ shop })`                        | Stale steps, redesigns and real bugs, by changing the shop between runs |
-| The tests | `project.replaceInFile()`                      | Reworded intents, renamed tests, moved steps                            |
-| The run   | `project.run({ retries, ci, updates, shard })` | Retries, CI, update policies and sharding                               |
-| The cache | `project.writeStep()`                          | Corrupted or conflicting step files                                     |
+| Lever     | How                                              | Forces                                                                  |
+| --------- | ------------------------------------------------ | ----------------------------------------------------------------------- |
+| The agent | `project.scriptAgent()`                          | Every outcome: solved, dirty, failed, and each failure decision         |
+| The app   | `project.run({ shop })`                          | Stale steps, redesigns and real bugs, by changing the shop between runs |
+| The tests | `project.replaceInFile()`                        | Reworded intents, renamed tests, moved steps                            |
+| The run   | `project.run({ retries, ci, updates, shard })`   | Retries, CI, update policies and sharding                               |
+| The cache | `project.writeStep()`                            | Corrupted or conflicting step files                                     |
+| The store | `createProject({ cacheApi })`, `cacheApi.outage` | A remote store over a real local `cache-api`, and its outages           |
 
 The usual pattern mirrors real life: generate against the `baseline` shop, change the shop, then run again.
 
@@ -40,6 +41,7 @@ Only things a user could see from the outside:
 - Every agent call, including exactly what the agent was told.
 - Trace contents: action lines and embedded sources.
 - What the reporter collected: its output, and the change set it writes.
+- Each request to the local cache API, and the steps it stored.
 
 ## Layout
 

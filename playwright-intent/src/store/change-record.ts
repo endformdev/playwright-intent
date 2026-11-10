@@ -62,7 +62,7 @@ export function parseChangeRecord(text: string): ChangeRecord | null {
 }
 
 /** Only true for a relative path that stays inside `.intent`. */
-function isStepKey(key: unknown): boolean {
+export function isStepKey(key: unknown): boolean {
 	if (typeof key !== "string" || key === "" || key.includes("\\")) return false;
 	if (path.posix.isAbsolute(key) || path.win32.isAbsolute(key)) return false;
 	return key

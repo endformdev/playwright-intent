@@ -8,7 +8,7 @@
 		"lint": "oxlint",
 		"test": "vitest",
 		"tsc": "tsc --build",
-		"release": "pnpx bumpp playwright-intent/package.json --commit --tag --push"
+		"release": "pnpx bumpp playwright-intent/package.json cache-api/package.json --commit --tag --push"
 	},
 	"packageManager": "pnpm@11.7.0",
 	"engines": {

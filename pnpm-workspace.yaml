@@ -1,4 +1,5 @@
 packages:
+  - cache-api
   - playwright-intent
 
 allowBuilds:
@@ -8,6 +9,8 @@ catalog:
   "@playwright/test": 1.63.0
   "@types/node": ^25.9.1
   ai: ^7.0.163
+  fflate: ^0.8.3
+  h3: 2.0.1-rc.22
   tsdown: ^0.22.1
   typescript: 6.0.3
   vitest: 4.1.7
