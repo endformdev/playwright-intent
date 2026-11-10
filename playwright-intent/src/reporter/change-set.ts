@@ -1,5 +1,4 @@
 import type { ChangeRecord, StepChangeCause } from "../store/change-record";
-import type { ChangeDelivery } from "../store/changes";
 
 export interface AttemptChanges {
 	/** It passed, or passed and was failed on purpose by `propose()`. */
@@ -21,7 +20,6 @@ export interface RunChange {
 	reason?: string;
 	/** The step file the attempt saved. Missing for a delete. */
 	source?: string;
-	delivery: ChangeDelivery;
 	tests: string[];
 }
 
@@ -30,7 +28,6 @@ export interface RunDiagnosis {
 	test: string;
 	key?: string;
 	reason: string;
-	delivery: ChangeDelivery;
 }
 
 export interface ChangeSet {
@@ -59,13 +56,12 @@ export function buildChangeSet(tests: TestChanges[]): ChangeSet {
 
 		for (const record of attempts.flatMap((attempt) => attempt.records)) {
 			if (record.kind !== "diagnosis") continue;
-			const { key, reason, delivery } = record;
+			const { key, reason } = record;
 			// Each attempt words its diagnosis differently, so keep the latest.
 			diagnoses.set(`${title}\n${key}`, {
 				test: title,
 				...(key !== undefined && { key }),
 				reason,
-				delivery,
 			});
 		}
 	}
@@ -95,7 +91,7 @@ function netChanges(attempts: AttemptChanges[]): Omit<RunChange, "tests">[] {
 	const net = new Map<string, Omit<RunChange, "tests">>();
 	for (const record of attempts.flatMap((attempt) => attempt.records)) {
 		if (!isFileRecord(record)) continue;
-		const { key, kind, cause, reason, delivery } = record;
+		const { key, kind, cause, reason } = record;
 		const earlier = net.get(key);
 		// `regenerate` deletes a step and a later attempt generates it again.
 		const explained = reason ?? earlier?.reason;
@@ -105,7 +101,6 @@ function netChanges(attempts: AttemptChanges[]): Omit<RunChange, "tests">[] {
 			cause: earlier?.cause === "regenerate" ? "regenerate" : cause,
 			...(explained !== undefined && { reason: explained }),
 			...(record.kind === "write" && { source: record.source }),
-			delivery,
 		});
 	}
 	return [...net.values()];

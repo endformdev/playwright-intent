@@ -6,7 +6,12 @@ import type {
 	Suite,
 	TestResult,
 } from "@playwright/test/reporter";
-import { deliverChanges } from "../github/deliver";
+import { IntentConfigError } from "../errors";
+import {
+	CONFIG_EXAMPLE,
+	type IntentOptions,
+	type IntentUseOptions,
+} from "../options";
 import { configDirectory, INTENT_DIRECTORY } from "../step/step-path";
 import {
 	CHANGE_ATTACHMENT,
@@ -14,6 +19,7 @@ import {
 	PASSED_ATTACHMENT,
 	parseChangeRecord,
 } from "../store/change-record";
+import type { IntentStoreProvider } from "../store/store";
 import {
 	type AttemptChanges,
 	buildChangeSet,
@@ -22,13 +28,20 @@ import {
 } from "./change-set";
 
 /**
- * Sees every test in a run, which a worker can't. Needed with `commit()` or
- * `propose()`, and works under `merge-reports` when it's given `-c`.
+ * Sees every test in a run, which a worker can't. Takes the same options as
+ * `use.intent`, and delivers changes for stores that need it. Works under
+ * `merge-reports` when it's given `-c`.
  */
 export default class IntentReporter implements Reporter {
+	#store?: IntentStoreProvider;
 	#directory = "";
 	#sharded = false;
 	#suite?: Suite;
+
+	/** Playwright adds its own options, like `configDir`, to the ones passed. */
+	constructor(options: Partial<IntentOptions> = {}) {
+		this.#store = options.store;
+	}
 
 	printsToStdio(): boolean {
 		return false;
@@ -38,6 +51,7 @@ export default class IntentReporter implements Reporter {
 		this.#directory = configDirectory(config);
 		this.#sharded = Boolean(config.shard);
 		this.#suite = suite;
+		if (!this.#store) assertNothingToDeliver(config);
 	}
 
 	async onEnd(): Promise<void> {
@@ -52,8 +66,10 @@ export default class IntentReporter implements Reporter {
 
 		printChanges(changes);
 
+		const deliver = this.#store?.deliver;
+		if (!deliver) return;
 		try {
-			await deliverChanges({
+			await deliver({
 				changes,
 				root,
 				env: process.env,
@@ -66,6 +82,23 @@ export default class IntentReporter implements Reporter {
 			console.error(`[intent] ${message}`);
 			throw new Error(message);
 		}
+	}
+}
+
+/**
+ * `use` is stripped under `merge-reports`, so this only catches a missing
+ * option when the tests run.
+ */
+function assertNothingToDeliver(config: FullConfig): void {
+	const delivered = config.projects.some((project) => {
+		const { intent } = project.use as IntentUseOptions;
+		return intent?.store?.updates?.(process.env).delivered;
+	});
+	if (delivered) {
+		throw new IntentConfigError(
+			"The store delivers its changes from playwright-intent/reporter, so " +
+				`pass the reporter the same options as use.intent:\n\n${CONFIG_EXAMPLE}`,
+		);
 	}
 }
 
@@ -112,7 +145,7 @@ function printChanges({ passed, failed, diagnoses }: ChangeSet): void {
 }
 
 function describeChange(change: RunChange): string {
-	const details = [change.kind, change.cause, change.delivery].join(", ");
+	const details = [change.kind, change.cause].join(", ");
 	const because = change.reason ? `: ${change.reason}` : "";
 	return `  ${INTENT_DIRECTORY}/${change.key} (${details})${because}`;
 }

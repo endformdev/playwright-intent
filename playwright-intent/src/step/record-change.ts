@@ -12,21 +12,21 @@ import {
 const CHANGED = "changed";
 const PASSED = "passed";
 
-/** Tells the reporter what this attempt changed. Does nothing for other policies. */
+/** Tells the reporter what this attempt changed, when its store delivers. */
 export async function recordChange(
 	scope: TestScope,
 	details: ChangeDetails,
 ): Promise<void> {
-	const { delivery, testInfo } = scope;
-	if (!delivery) return;
+	const { updates, testInfo } = scope;
+	if (!updates.delivered) return;
 
-	const record: ChangeRecord = { version: 1, ...details, delivery };
+	const record: ChangeRecord = { version: 1, ...details };
 	await testInfo.attach(CHANGE_ATTACHMENT, {
 		contentType: "application/json",
 		body: JSON.stringify(record),
 	});
 
-	if (delivery === "propose" && details.kind !== "diagnosis") {
+	if (updates.awaitsReview && details.kind !== "diagnosis") {
 		const marker = proposalMarker(scope);
 		await fs.mkdir(path.dirname(marker), { recursive: true });
 		await fs.writeFile(marker, CHANGED);
@@ -38,7 +38,7 @@ export async function recordChange(
  * the test has passed with its changes, the retries left have nothing to add.
  */
 export async function startProposalTracking(scope: TestScope): Promise<void> {
-	if (scope.delivery !== "propose") return;
+	if (!scope.updates.awaitsReview) return;
 	const marker = proposalMarker(scope);
 	if (scope.testInfo.retry === 0) {
 		await fs.rm(marker, { force: true });
@@ -54,8 +54,8 @@ export async function startProposalTracking(scope: TestScope): Promise<void> {
  * alone.
  */
 export async function failPassedProposal(scope: TestScope): Promise<void> {
-	const { delivery, testInfo } = scope;
-	if (delivery !== "propose" || testInfo.status !== "passed") return;
+	const { updates, testInfo } = scope;
+	if (!updates.awaitsReview || testInfo.status !== "passed") return;
 
 	const marker = proposalMarker(scope);
 	const state = await fs.readFile(marker, "utf8").catch(() => null);

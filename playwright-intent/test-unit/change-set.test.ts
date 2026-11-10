@@ -14,7 +14,6 @@ const write = (key: string, reason?: string): ChangeRecord => ({
 	key,
 	cause: "repair",
 	source: "abc",
-	delivery: "commit",
 	...(reason && { reason }),
 });
 const failed = (...records: ChangeRecord[]): AttemptChanges => ({
@@ -35,7 +34,6 @@ test("a change is kept when a later attempt passes", () => {
 			cause: "repair",
 			reason: "Renamed",
 			source: "abc",
-			delivery: "commit",
 			tests: ["a"],
 		},
 	]);
@@ -90,7 +88,6 @@ test("a regenerated step keeps the reason it was deleted", () => {
 		key: "a.ts",
 		cause: "regenerate",
 		reason: "Stale",
-		delivery: "commit",
 	};
 	const generate: ChangeRecord = {
 		version: 1,
@@ -98,7 +95,6 @@ test("a regenerated step keeps the reason it was deleted", () => {
 		key: "a.ts",
 		cause: "generate",
 		source: "def",
-		delivery: "commit",
 	};
 
 	const set = buildChangeSet([
@@ -115,7 +111,6 @@ test("only a test's latest diagnosis is kept", () => {
 		version: 1,
 		kind: "diagnosis",
 		reason,
-		delivery: "commit",
 	});
 
 	const set = buildChangeSet([
@@ -129,9 +124,7 @@ test("only a test's latest diagnosis is kept", () => {
 	]);
 
 	expect(set.passed).toEqual([]);
-	expect(set.diagnoses).toEqual([
-		{ test: "a", reason: "Payments are down", delivery: "commit" },
-	]);
+	expect(set.diagnoses).toEqual([{ test: "a", reason: "Payments are down" }]);
 });
 
 test.each([

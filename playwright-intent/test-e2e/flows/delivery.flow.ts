@@ -54,7 +54,7 @@ flow.describe("commit and propose", () => {
 
 		const run = await project.run({
 			shop: "renamed-add-link",
-			changes: "commit",
+			updates: "commit",
 		});
 
 		const test = run.test(CHECKOUT_TEST);
@@ -70,11 +70,10 @@ flow.describe("commit and propose", () => {
 				cause: "repair",
 				reason: REASON,
 				source: expect.stringContaining("Buy blue shirt"),
-				delivery: "commit",
 			},
 		]);
 		expect(run.reported.passed).toMatchObject([
-			{ key: ADD_FILE, kind: "write", delivery: "commit" },
+			{ key: ADD_FILE, kind: "write" },
 		]);
 		expect(run.output).toContain("Step changes from passing tests (1)");
 	});
@@ -93,7 +92,7 @@ flow.describe("commit and propose", () => {
 		const run = await project.run({
 			shop: "renamed-add-link",
 			retries: 1,
-			changes: "commit",
+			updates: "commit",
 		});
 
 		const test = run.test(CHECKOUT_TEST);
@@ -109,7 +108,7 @@ flow.describe("commit and propose", () => {
 
 		const run = await project.run({
 			shop: "renamed-add-link",
-			changes: "propose",
+			updates: "propose",
 		});
 
 		const test = run.test(CHECKOUT_TEST);
@@ -117,12 +116,8 @@ flow.describe("commit and propose", () => {
 		expect(test.outcome).toBe("unexpected");
 		expect(test.attempts).toEqual(["failed"]);
 		expect(test.errors[0]).toContain("The test passed with its step changes");
-		expect(test.changes).toMatchObject([
-			{ attempt: 0, key: ADD_FILE, delivery: "propose" },
-		]);
-		expect(run.reported.passed).toMatchObject([
-			{ key: ADD_FILE, delivery: "propose" },
-		]);
+		expect(test.changes).toMatchObject([{ attempt: 0, key: ADD_FILE }]);
+		expect(run.reported.passed).toMatchObject([{ key: ADD_FILE }]);
 	});
 
 	flow("propose keeps failing on every retry left", async ({ project }) => {
@@ -132,7 +127,7 @@ flow.describe("commit and propose", () => {
 		const run = await project.run({
 			shop: "renamed-add-link",
 			retries: 2,
-			changes: "propose",
+			updates: "propose",
 		});
 
 		expect(run.test(CHECKOUT_TEST).attempts).toEqual([
@@ -158,7 +153,7 @@ flow.describe("commit and propose", () => {
 				'await page.goto("/");\n\t\tif (test.info().retry === 0) throw new Error("A flake");',
 			);
 
-			const run = await project.run({ retries: 1, changes: "propose" });
+			const run = await project.run({ retries: 1, updates: "propose" });
 
 			expect(run.exitCode).toBe(0);
 			expect(run.test(CHECKOUT_TEST).outcome).toBe("flaky");
@@ -171,7 +166,7 @@ flow.describe("commit and propose", () => {
 		async ({ project }) => {
 			await project.scriptAgent(checkoutScript());
 
-			const run = await project.run({ changes: "commit" });
+			const run = await project.run({ updates: "commit" });
 
 			const test = run.test(CHECKOUT_TEST);
 			expect(test.attempts).toEqual(["passed"]);
@@ -207,7 +202,7 @@ flow.describe("commit and propose", () => {
 		const run = await project.run({
 			shop: "renamed-add-link",
 			retries: 1,
-			changes: "commit",
+			updates: "commit",
 		});
 
 		expect(run.test(CHECKOUT_TEST).changes).toMatchObject([
@@ -232,7 +227,7 @@ flow.describe("commit and propose", () => {
 		const run = await project.run({
 			shop: "broken-payment",
 			retries: 1,
-			changes: "commit",
+			updates: "commit",
 		});
 
 		const test = run.test(CHECKOUT_TEST);
@@ -243,7 +238,6 @@ flow.describe("commit and propose", () => {
 				version: 1,
 				kind: "diagnosis",
 				reason: "Payments are down.",
-				delivery: "commit",
 			},
 		]);
 		const set = run.reported;
@@ -256,7 +250,7 @@ flow.describe("commit and propose", () => {
 			generate: { [INTENT.add]: [solvedButDirty(CODE.add)] },
 		});
 
-		const run = await project.run({ changes: "commit" });
+		const run = await project.run({ updates: "commit" });
 
 		expect(run.test(CHECKOUT_TEST).attempts).toEqual(["failed"]);
 		const set = run.reported;
@@ -267,15 +261,15 @@ flow.describe("commit and propose", () => {
 		);
 	});
 
-	for (const changes of ["allow", "refuse"] as const) {
-		flow(`${changes} attaches no records`, async ({ project }) => {
+	for (const updates of ["allow", "refuse"] as const) {
+		flow(`${updates} attaches no records`, async ({ project }) => {
 			await generateCheckout(project);
 			await project.scriptAgent({ diagnose: { [INTENT.add]: [repairAdd()] } });
 
 			const run = await project.run({
 				shop: "renamed-add-link",
 				retries: 1,
-				changes,
+				updates,
 			});
 
 			expect(run.test(CHECKOUT_TEST).attachments).not.toContain(
@@ -327,12 +321,12 @@ flow.describe("commit and propose", () => {
 			const options = {
 				shop: "renamed-add-link",
 				retries: 1,
-				changes: "commit",
+				updates: "commit",
 				files,
 			} as const;
 			await project.run({ ...options, shard: "1/2" });
 			await project.run({ ...options, shard: "2/2" });
-			const merged = await project.mergeReports();
+			const merged = await project.mergeReports({ updates: "commit" });
 
 			const set = merged.reported;
 			expect(set.passed.map((change) => change.key)).toEqual([

@@ -36,21 +36,25 @@ Code always runs from disk, because Playwright reads the file for snippets and t
 
 ## Storing steps
 
-`use.intent.store` is required, and a store can't be set up without `changes`. A generated step is only useful if something keeps it, and that depends on where the run happens, so nobody should get it by default.
+One intent options object goes to both `use.intent` and the reporter's options. The fixture and the reporter read the same store, so they agree on whether a change is allowed and how it's kept. A reporter option keeps its functions under `merge-reports`, where `use` is stripped.
 
-`changes` is one policy, or `{ local, ci }` chosen by the `CI` environment variable. It's a gate: it's checked in the worker just before the agent starts, whether generating or diagnosing. During a diagnosis, the agent may then change nothing at all. Throwing stops the change, so nothing is spent on the model.
+`store` is required, and it decides two things: whether the agent may change steps in this run, and what keeps a change once it's made. A generated step is only useful if something keeps it, and that depends on where the run happens, so nobody should get it by default. For the file store that's `updates`, and a file store can't be set up without it.
+
+A store provider has `open(root)`, which the worker reads and writes steps through, `updates(env)`, which tells the fixture whether the agent may run and how a change is kept, and an optional `deliver`, which the reporter calls with the run's changes.
+
+`updates` is one policy, or `{ local, ci }` chosen by the `CI` environment variable. The worker and the reporter each resolve it from their own environment.
 
 - `allow()` lets the agent generate missing steps and diagnose failures, and its changes stay on disk to review and commit.
 - `refuse()` never runs the agent. A missing step throws `IntentChangeRejectedError`, and a failing step is an ordinary test failure.
 - `commit()` and `propose()` allow the change and leave a record for the reporter. See [Delivering changes](#delivering-changes).
 
-Built-in policies are named values rather than plain functions, so the library knows which one is active and can tell a reporter. A custom function can still decide permission, but it can't deliver anything. One that throws for `diagnose` generates steps and leaves failures alone: the test keeps its own error, and the rejection is reported.
+Policies are named values rather than functions, so the library knows which one is active and what keeps its changes.
 
 A `{ local, ci }` pair keeps CI from being forgotten. A job that needs something else, like a nightly self-heal, can use plain JS in the config.
 
 Playwright's types make every `use` key optional, so the fixture also throws `IntentConfigError` when `store` is missing.
 
-`fileStore` and the built-in policies have their own entry point, `playwright-intent/file-store`, so they can be used without loading Playwright's test runner. `openFileStore(root)` is the plain store with no policy, which is what the reporter reads with.
+`fileStore` and the built-in policies have their own entry point, `playwright-intent/file-store`, so they can be used without loading Playwright's test runner. `openFileStore(root)` is the plain store with no policy.
 
 ## Generating steps
 
@@ -74,13 +78,13 @@ The first normal replay shows whether a generated step works.
 
 ## Regenerating steps
 
-A missing step is generated and a failing one is diagnosed, unless `changes` stops it. To regenerate steps, delete their files from `.intent`, and the next run generates them again.
+A missing step is generated and a failing one is diagnosed, unless the store's `updates` stop it. To regenerate steps, delete their files from `.intent`, and the next run generates them again.
 
-Configuration lives only in `playwright.config.ts`, under `use.intent`.
+Configuration lives only in `playwright.config.ts`, in the intent options passed to `use.intent` and the reporter.
 
 ## Failures
 
-Retries are the only rewind, because a fixture can't restart a test. Unless `changes` stops it, the agent diagnoses each failure on the live page and returns one decision:
+Retries are the only rewind, because a fixture can't restart a test. Unless the store's `updates` stop it, the agent diagnoses each failure on the live page and returns one decision:
 
 | Decision          | Cache               | Test                           |
 | ----------------- | ------------------- | ------------------------------ |
@@ -118,7 +122,7 @@ Saved changes follow the same rule as any other run: `ready` carries on in the s
 | `commit()`  | Nothing more. It's flaky if it needed a retry | Green                  |
 | `propose()` | The fixture's teardown fails the attempt      | Red until it's applied |
 
-The worker attaches an `intent-change` record for each write, delete and diagnosis. A write's record includes the step's source, so the report alone carries a run's changes. The delivery job doesn't need `.intent` restored, and a shard's out-of-date copy can't replace another shard's fix. `delivery` is in the record because a reporter under `merge-reports` can't read `use.intent`.
+The worker attaches an `intent-change` record for each write, delete and diagnosis. A write's record includes the step's source, so the report alone carries a run's changes. The delivery job doesn't need `.intent` restored, and a shard's out-of-date copy can't replace another shard's fix. The reporter works out the policy from its own options and environment, so a merge job resolves `{ local, ci }` with its own `CI` variable.
 
 For `propose()`, a marker in the project's output folder records that the test saved a change, because a retry is a new process. That tells a passing retry from a normal flaky test. The first attempt clears it, so nothing carries over between runs. An attempt that passed and was failed on purpose attaches `intent-passed`, so the reporter knows it passed, and any retries left fail straight away.
 
@@ -127,12 +131,12 @@ An attempt only gets one diagnosis, so each broken step past the first needs a r
 ### The reporter
 
 ```ts
-reporter: [["list"], ["playwright-intent/reporter"]],
+reporter: [["list"], ["playwright-intent/reporter", intent]],
 ```
 
 Gathering a run's fixes needs something that sees every test. A reporter is the only hook that works on plain Playwright, sharded CI and Endform: `globalTeardown` runs before results exist, and Endform removes it on lambdas. `playwright merge-reports` runs reporters too, so sharded CI gets one set of changes. Playwright's plugin hook, `config["@playwright/test"].plugins`, is private and wouldn't run under `merge-reports`.
 
-It's an explicit line, and only `commit()` and `propose()` need it. The fixture doesn't check for it, because a sharded run's reporter is in the merge job.
+It's an explicit line, and only `commit()` and `propose()` need it. The fixture doesn't check for it, because a sharded run's reporter is in the merge job. A reporter given no options looks at `use.intent` in each project when the tests run, and throws `IntentConfigError` if the store delivers its changes. Under `merge-reports`, `use` is stripped, so there's nothing to check.
 
 - A change counts as passed when an attempt saved it and that attempt or a later one of the same test passed.
 - Browser projects share steps, so a file that a failed test also wrote is left out.

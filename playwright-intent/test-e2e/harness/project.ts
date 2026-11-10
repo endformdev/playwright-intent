@@ -26,10 +26,12 @@ const PLAYWRIGHT_CLI = createRequire(import.meta.url).resolve(
 export interface RunOptions {
 	retries?: number;
 	shop?: ShopVariant;
-	/** Runs as if on CI, which picks the project's `changes.ci`. */
+	/** Runs as if on CI, which picks the project's `updates.ci`. */
 	ci?: boolean;
 	/** Uses this policy for every run, instead of a local and CI pair. */
-	changes?: "allow" | "refuse" | "commit" | "propose" | "generate-only";
+	updates?: "allow" | "refuse" | "commit" | "propose";
+	/** Adds the reporter without passing it the intent options. */
+	withoutReporterOptions?: boolean;
 	/** Passes `--shard` and adds a blob report for `mergeReports` to read. */
 	shard?: string;
 	/** Runs as a GitHub Actions job for this fake's pull request. */
@@ -74,7 +76,6 @@ export interface ReportedChange {
 	key: string;
 	kind: string;
 	cause: string;
-	delivery: string;
 	reason?: string;
 }
 
@@ -149,9 +150,12 @@ export class Project {
 		return this.#runCli(args, options);
 	}
 
-	/** Merges the blob reports left by `shard` runs, like a CI merge job. */
+	/**
+	 * Merges the blob reports left by `shard` runs, like a CI merge job. The
+	 * reporter reads its own config, so pass the policy the shards ran with.
+	 */
 	async mergeReports(
-		options: Pick<RunOptions, "github"> = {},
+		options: Pick<RunOptions, "github" | "updates"> = {},
 	): Promise<RunResult> {
 		return this.#runCli(
 			[
@@ -280,7 +284,10 @@ export class Project {
 			INTENT_E2E_AGENT_SCRIPT: this.#path("agent-script.json"),
 			SHOP_VARIANT: options.shop ?? "baseline",
 			...(options.ci && { CI: "true" }),
-			...(options.changes && { INTENT_E2E_CHANGES: options.changes }),
+			...(options.updates && { INTENT_E2E_UPDATES: options.updates }),
+			...(options.withoutReporterOptions && {
+				INTENT_E2E_NO_REPORTER_OPTIONS: "1",
+			}),
 			// Each shard would otherwise delete the blob before it.
 			...(options.shard && {
 				INTENT_E2E_BLOB: "1",
@@ -359,7 +366,7 @@ interface JsonSpec {
 }
 
 const CHANGE_LINE =
-	/^ {2}\.intent\/(.+) \((write|delete), (repair|generate|regenerate), (commit|propose)\)(?:: (.*))?$/;
+	/^ {2}\.intent\/(.+) \((write|delete), (repair|generate|regenerate)\)(?:: (.*))?$/;
 
 function readReportedChanges(output: string): ReportedChanges {
 	const lines = output.split("\n");
@@ -376,8 +383,8 @@ function readReportedChanges(output: string): ReportedChanges {
 		section(heading).map((line) => {
 			const match = CHANGE_LINE.exec(line);
 			if (!match) throw new Error(`Can't read this change: ${line}`);
-			const [, key = "", kind = "", cause = "", delivery = "", reason] = match;
-			return { key, kind, cause, delivery, ...(reason && { reason }) };
+			const [, key = "", kind = "", cause = "", reason] = match;
+			return { key, kind, cause, ...(reason && { reason }) };
 		});
 
 	return {

@@ -40,18 +40,21 @@ npm install -D playwright-intent
 
 ```ts
 // playwright.config.ts
-import { defineConfig, type IntentUseOptions } from "playwright-intent";
+import {
+	defineConfig,
+	type IntentOptions,
+	type IntentUseOptions,
+} from "playwright-intent";
 import { allow, fileStore, refuse } from "playwright-intent/file-store";
 
+const intent = {
+	model: "openai/gpt-6-luna",
+	store: fileStore({ updates: { local: allow(), ci: refuse() } }),
+} satisfies IntentOptions;
+
 export default defineConfig<IntentUseOptions>({
-	use: {
-		intent: {
-			model: "openai/gpt-6-luna",
-			store: fileStore({
-				changes: { local: allow(), ci: refuse() },
-			}),
-		},
-	},
+	reporter: [["list"], ["playwright-intent/reporter", intent]],
+	use: { intent },
 });
 ```
 
@@ -59,15 +62,15 @@ Run your tests as usual, with `AI_GATEWAY_API_KEY` set or a provider's model in 
 
 ## Configuration
 
-Everything lives under `use.intent` in `playwright.config.ts`.
+The intent options go to both `use.intent` and `playwright-intent/reporter`, so tests and the reporter agree on where steps go. Define them once, as in the quick start.
 
-| Option    | Description                                                   |
-| --------- | ------------------------------------------------------------- |
-| `store`   | Required. Where steps live, and what happens when they change |
-| `model`   | The [AI SDK](https://ai-sdk.dev) model used to write steps    |
-| `prompts` | Changes what the built-in agent is told                       |
-| `context` | Adds your own text to a failure diagnosis                     |
-| `limits`  | The agent's `maxTurns` and `timeoutMs`                        |
+| Option    | Description                                                      |
+| --------- | ---------------------------------------------------------------- |
+| `store`   | Required. Where steps live, and how the agent's changes are kept |
+| `model`   | The [AI SDK](https://ai-sdk.dev) model used to write steps       |
+| `prompts` | Changes what the built-in agent is told                          |
+| `context` | Adds your own text to a failure diagnosis                        |
+| `limits`  | The agent's `maxTurns` and `timeoutMs`                           |
 
 ## Models
 
@@ -103,11 +106,11 @@ Providers that wrap a CLI, like Codex CLI or Claude Code, run their own tools in
 
 So far, generated steps have only been tried with `openai/gpt-6-luna`.
 
-## Stores and changes
+## Stores and updates
 
 `fileStore` keeps steps in `.intent` beside your Playwright config. It and the policies below all come from `playwright-intent/file-store`.
 
-A store always needs `changes`, because a change that nobody keeps is lost. A step generated on a CI machine disappears with it, unless you've decided what should happen. `changes` is a policy checked before the agent starts:
+A store always needs `updates`, because a change that nobody keeps is lost. A step generated on a CI machine disappears with it, unless you've decided what should happen. `updates` decides whether the agent may change steps, and what keeps its changes:
 
 - `allow()` lets the agent write missing steps and diagnose failing ones, and leaves its changes on disk for you to review and commit.
 - `refuse()` never calls the model. A missing step fails the test, and a failing step fails like any other test.
@@ -116,18 +119,8 @@ A store always needs `changes`, because a change that nobody keeps is lost. A st
 Pass one policy to use it everywhere, or `{ local, ci }` to choose by whether the `CI` environment variable is set:
 
 ```ts
-fileStore({ changes: { local: allow(), ci: refuse() } });
-fileStore({ changes: allow() });
-```
-
-A policy can also be your own function, which throws to stop the change. This one writes missing steps, but leaves failures alone:
-
-```ts
-fileStore({
-	changes: (change) => {
-		if (change.type === "diagnose") throw new Error("Failures stay failures.");
-	},
-});
+fileStore({ updates: { local: allow(), ci: refuse() } });
+fileStore({ updates: allow() });
 ```
 
 To regenerate steps, delete their files from `.intent`, and the next run writes them again.
@@ -141,10 +134,19 @@ To regenerate steps, delete their files from `.intent`, and the next run writes 
 - `commit()` adds one commit to the pull request, and the test passes. The bot's commit needs its CI run approved.
 - `propose()` leaves a comment with a patch to paste, and the test stays red until it's applied.
 
-Add the reporter to your config, and keep `retries` at 1 or more, because the agent sometimes needs a clean page to carry on from:
+The reporter needs the same options as `use.intent`, as in the quick start. Keep `retries` at 1 or more, because the agent sometimes needs a clean page to carry on from:
 
 ```ts
-reporter: [["list"], ["playwright-intent/reporter"]],
+const intent = {
+	model: "openai/gpt-6-luna",
+	store: fileStore({ updates: { local: allow(), ci: commit() } }),
+} satisfies IntentOptions;
+
+export default defineConfig<IntentUseOptions>({
+	retries: 1,
+	reporter: [["list"], ["playwright-intent/reporter", intent]],
+	use: { intent },
+});
 ```
 
 Then give the job that runs your tests permission to deliver:

@@ -1,10 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
-import {
-	allow,
-	fileStore,
-	type IntentUseOptions,
-	refuse,
-} from "playwright-intent";
+import type { IntentOptions, IntentUseOptions } from "playwright-intent";
+import { allow, fileStore, refuse } from "playwright-intent/file-store";
+
+const intent = {
+	// Steps come from .intent on Endform, so its runners need no model key.
+	store: fileStore({
+		updates: process.env.ENDFORM === "true" ? refuse() : allow(),
+	}),
+	model: process.env.INTENT_MODEL ?? "openai/gpt-6-luna",
+} satisfies IntentOptions;
 
 export default defineConfig<IntentUseOptions>({
 	testDir: "./tests-intent",
@@ -17,12 +21,6 @@ export default defineConfig<IntentUseOptions>({
 		baseURL:
 			process.env.BASE_URL || "https://endform-playwright-tutorial.vercel.app",
 		trace: "on",
-		intent: {
-			// Steps come from .intent on Endform, so its runners need no model key.
-			store: fileStore({
-				changes: process.env.ENDFORM === "true" ? refuse() : allow(),
-			}),
-			model: process.env.INTENT_MODEL ?? "openai/gpt-6-luna",
-		},
+		intent,
 	},
 });
