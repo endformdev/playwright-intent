@@ -20,7 +20,7 @@ export async function recordChange(
 	const { updates, testInfo } = scope;
 	if (!updates.delivered) return;
 
-	const record: ChangeRecord = { version: 2, ...details };
+	const record: ChangeRecord = { version: 1, ...details };
 	await testInfo.attach(CHANGE_ATTACHMENT, {
 		contentType: "application/json",
 		body: JSON.stringify(record),

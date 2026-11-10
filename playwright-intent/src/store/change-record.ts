@@ -28,7 +28,7 @@ export type ChangeDetails =
 	| { kind: "diagnosis"; key?: string; reason: string };
 
 /** What a test attaches for each change, when its store delivers them. */
-export type ChangeRecord = ChangeDetails & { version: 2 };
+export type ChangeRecord = ChangeDetails & { version: 1 };
 
 /** Returns null for anything this version of the library can't act on. */
 export function parseChangeRecord(text: string): ChangeRecord | null {
@@ -39,7 +39,7 @@ export function parseChangeRecord(text: string): ChangeRecord | null {
 		return null;
 	}
 	if (
-		value?.version !== 2 ||
+		value?.version !== 1 ||
 		(value.reason !== undefined && typeof value.reason !== "string")
 	) {
 		return null;

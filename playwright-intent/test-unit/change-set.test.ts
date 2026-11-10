@@ -9,7 +9,7 @@ import {
 } from "../src/store/change-record";
 
 const write = (key: string, reason?: string): ChangeRecord => ({
-	version: 2,
+	version: 1,
 	kind: "write",
 	key,
 	cause: "repair",
@@ -83,14 +83,14 @@ test("tests that pass with the same file are listed together", () => {
 
 test("a regenerated step keeps the reason it was deleted", () => {
 	const remove: ChangeRecord = {
-		version: 2,
+		version: 1,
 		kind: "delete",
 		key: "a.ts",
 		cause: "regenerate",
 		reason: "Stale",
 	};
 	const generate: ChangeRecord = {
-		version: 2,
+		version: 1,
 		kind: "write",
 		key: "a.ts",
 		cause: "generate",
@@ -108,7 +108,7 @@ test("a regenerated step keeps the reason it was deleted", () => {
 
 test("only a test's latest diagnosis is kept", () => {
 	const diagnosis = (reason: string): ChangeRecord => ({
-		version: 2,
+		version: 1,
 		kind: "diagnosis",
 		reason,
 	});
@@ -140,7 +140,7 @@ test.each([
 
 test("records from another version or that aren't JSON are rejected", () => {
 	expect(
-		parseChangeRecord(JSON.stringify({ ...write("a.ts"), version: 1 })),
+		parseChangeRecord(JSON.stringify({ ...write("a.ts"), version: 2 })),
 	).toBeNull();
 	expect(parseChangeRecord("not json")).toBeNull();
 	expect(parseChangeRecord("null")).toBeNull();

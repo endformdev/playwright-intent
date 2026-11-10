@@ -64,7 +64,7 @@ flow.describe("commit and propose", () => {
 		expect(test.changes).toEqual([
 			{
 				attempt: 0,
-				version: 2,
+				version: 1,
 				kind: "write",
 				key: ADD_FILE,
 				cause: "repair",
@@ -235,7 +235,7 @@ flow.describe("commit and propose", () => {
 		expect(test.changes).toEqual([
 			{
 				attempt: 0,
-				version: 2,
+				version: 1,
 				kind: "diagnosis",
 				reason: "Payments are down.",
 			},
