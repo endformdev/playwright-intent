@@ -36,5 +36,6 @@ export type {
 	DeliveryInput,
 	IntentStore,
 	IntentStoreProvider,
+	PrepareInput,
 	StepUpdates,
 } from "./store/store";

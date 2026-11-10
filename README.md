@@ -108,7 +108,7 @@ So far, generated steps have only been tried with `openai/gpt-6-luna`.
 
 ## Stores and updates
 
-`fileStore` keeps steps in `.intent` beside your Playwright config. It and the policies below all come from `playwright-intent/file-store`.
+`fileStore` keeps steps in `.intent` beside your Playwright config, for you to commit. It and the policies below all come from `playwright-intent/file-store`. To keep steps out of Git and share them between CI runs instead, see [Sharing steps through a remote store](#sharing-steps-through-a-remote-store).
 
 A store always needs `updates`, because a change that nobody keeps is lost. A step generated on a CI machine disappears with it, unless you've decided what should happen. `updates` decides whether the agent may change steps, and what keeps its changes:
 
@@ -170,6 +170,47 @@ jobs:
 Sharded runs deliver from `playwright merge-reports` instead. See [the design notes](docs/design.md#delivering-through-github).
 
 Pull requests from forks and Dependabot get a read-only token and no secrets, so both policies act as `refuse()` there.
+
+### Sharing steps through a remote store
+
+`remoteStore` keeps steps in [`@playwright-intent/cache-api`](cache-api/README.md), which you deploy on any S3-compatible storage, like Cloudflare R2. CI runs share the steps through it, so nothing is committed:
+
+```ts
+import { remoteStore, shared } from "playwright-intent/remote-store";
+
+const intent = {
+	model: "openai/gpt-6-luna",
+	store: remoteStore({
+		url: "https://intent-cache.example.com",
+		token: process.env.INTENT_CACHE_TOKEN,
+		updates: shared(),
+	}),
+} satisfies IntentOptions;
+
+export default defineConfig<IntentUseOptions>({
+	retries: 1,
+	reporter: [["list"], ["playwright-intent/reporter", intent]],
+	use: { intent },
+});
+```
+
+The reporter is required. It downloads the stored steps into `.intent` before any test starts, and uploads the run's changes at the end.
+
+- Every run downloads the steps once. If a test's folder is already in `.intent`, what's on disk is used, so your local work wins. Delete a test's folder to download it again, and add `.intent` to `.gitignore`.
+- The agent can always change steps. Runs with the `CI` environment variable set upload the changes from tests that end up passing, and local runs never upload.
+- `shared()` means every branch reads and writes the same steps. When two runs upload at once, the last one wins, and the steps it overwrote are generated again on a later run.
+- If the steps can't be downloaded, every test fails, rather than regenerating all of them.
+- Sharded runs upload from `playwright merge-reports`, with the reporter in the config passed to `-c`.
+- Pull requests from forks and Dependabot get no secrets, so they never upload. They can only download if your API lets them read without a token.
+
+Pass the token to the job that runs your tests:
+
+```yaml
+- run: npx playwright test
+  env:
+    AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+    INTENT_CACHE_TOKEN: ${{ secrets.INTENT_CACHE_TOKEN }}
+```
 
 ## Prompts
 

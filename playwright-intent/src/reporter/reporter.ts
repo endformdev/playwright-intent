@@ -34,13 +34,27 @@ import {
  */
 export default class IntentReporter implements Reporter {
 	#store?: IntentStoreProvider;
+	#prepared?: Promise<void>;
 	#directory = "";
 	#sharded = false;
 	#suite?: Suite;
 
-	/** Playwright adds its own options, like `configDir`, to the ones passed. */
-	constructor(options: Partial<IntentOptions> = {}) {
-		this.#store = options.store;
+	/**
+	 * Playwright adds its own options, like `configDir`. The reporter is created
+	 * before global setup and before workers start, so the store prepares here.
+	 * That includes `merge-reports` and `--list`, which don't need it, so a
+	 * failure is left for the workers to report.
+	 */
+	constructor(options: Partial<IntentOptions> & { configDir?: string } = {}) {
+		const store = options.store;
+		const { configDir } = options;
+		this.#store = store;
+		if (store?.prepare && configDir) {
+			const root = path.join(configDir, INTENT_DIRECTORY);
+			this.#prepared = Promise.resolve()
+				.then(() => store.prepare?.({ root, env: process.env }))
+				.catch(() => {});
+		}
 	}
 
 	printsToStdio(): boolean {
@@ -51,10 +65,11 @@ export default class IntentReporter implements Reporter {
 		this.#directory = configDirectory(config);
 		this.#sharded = Boolean(config.shard);
 		this.#suite = suite;
-		if (!this.#store) assertNothingToDeliver(config);
+		if (!this.#store) assertStoreNeedsNoOptions(config);
 	}
 
 	async onEnd(): Promise<void> {
+		await this.#prepared;
 		const tests = await Promise.all(
 			(this.#suite?.allTests() ?? []).map(async (test) => ({
 				title: test.titlePath().filter(Boolean).join(" > "),
@@ -89,15 +104,15 @@ export default class IntentReporter implements Reporter {
  * `use` is stripped under `merge-reports`, so this only catches a missing
  * option when the tests run.
  */
-function assertNothingToDeliver(config: FullConfig): void {
-	const delivered = config.projects.some((project) => {
-		const { intent } = project.use as IntentUseOptions;
-		return intent?.store?.updates?.(process.env).delivered;
+function assertStoreNeedsNoOptions(config: FullConfig): void {
+	const needsReporter = config.projects.some((project) => {
+		const store = (project.use as IntentUseOptions).intent?.store;
+		return store?.prepare || store?.updates?.(process.env).delivered;
 	});
-	if (delivered) {
+	if (needsReporter) {
 		throw new IntentConfigError(
-			"The store delivers its changes from playwright-intent/reporter, so " +
-				`pass the reporter the same options as use.intent:\n\n${CONFIG_EXAMPLE}`,
+			"The store works through playwright-intent/reporter, so pass the " +
+				`reporter the same options as use.intent:\n\n${CONFIG_EXAMPLE}`,
 		);
 	}
 }

@@ -38,6 +38,12 @@
 			"require": "./dist/file-store.cjs",
 			"default": "./dist/file-store.mjs"
 		},
+		"./remote-store": {
+			"types": "./dist/remote-store.d.mts",
+			"import": "./dist/remote-store.mjs",
+			"require": "./dist/remote-store.cjs",
+			"default": "./dist/remote-store.mjs"
+		},
 		"./reporter": {
 			"types": "./dist/reporter.d.mts",
 			"import": "./dist/reporter.mjs",
@@ -52,12 +58,14 @@
 		"test:e2e": "pnpm build && pnpm playwright test"
 	},
 	"dependencies": {
-		"ai": "catalog:"
+		"ai": "catalog:",
+		"fflate": "catalog:"
 	},
 	"peerDependencies": {
 		"@playwright/test": ">=1.60.0"
 	},
 	"devDependencies": {
+		"@playwright-intent/cache-api": "workspace:*",
 		"@playwright/test": "catalog:",
 		"@types/node": "catalog:",
 		"tsdown": "catalog:",

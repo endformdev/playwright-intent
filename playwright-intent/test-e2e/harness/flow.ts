@@ -1,4 +1,7 @@
 import { test as base } from "@playwright/test";
+import path from "node:path";
+import { WORKSPACES } from "../global-setup";
+import { LocalCacheApi } from "./cache-api";
 import { FakeGitHub } from "./fake-github";
 import { Project } from "./project";
 
@@ -8,10 +11,12 @@ export interface FlowFixtures {
 	/** An ESM project with the default store. */
 	project: Project;
 	github: FakeGitHub;
+	/** A local `@playwright-intent/cache-api`, for projects with a remote store. */
+	cacheApi: LocalCacheApi;
 	/** For the rare flow that needs a differently set up project. */
 	createProject(options: {
 		moduleType?: "esm" | "cjs";
-		remoteStore?: boolean;
+		cacheApi?: LocalCacheApi;
 	}): Promise<Project>;
 }
 
@@ -42,6 +47,15 @@ export const flow = base.extend<FlowFixtures>({
 		const github = await FakeGitHub.start();
 		await use(github);
 		await github.close();
+	},
+
+	// oxlint-disable-next-line no-empty-pattern
+	cacheApi: async ({}, use, testInfo) => {
+		const directory = path.join(WORKSPACES, `${testInfo.testId}-cache`);
+		const cacheApi = await LocalCacheApi.start(directory);
+		await use(cacheApi);
+		await cacheApi.close();
+		if (testInfo.status === testInfo.expectedStatus) await cacheApi.cleanUp();
 	},
 
 	project: async ({ createProject }, use) => {

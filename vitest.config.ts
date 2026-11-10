@@ -2,6 +2,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	test: {
-		include: ["playwright-intent/test-unit/**/*.test.ts"],
+		include: [
+			"cache-api/test-unit/**/*.test.ts",
+			"playwright-intent/test-unit/**/*.test.ts",
+		],
 	},
 });

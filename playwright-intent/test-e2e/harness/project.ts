@@ -15,6 +15,7 @@ import {
 	type ModelScript,
 } from "../project/scripted-model";
 import type { ShopVariant } from "../project/shop/app";
+import { LocalCacheApi } from "./cache-api";
 import { FakeGitHub } from "./fake-github";
 import { readTrace, type TraceContents } from "./trace";
 
@@ -32,6 +33,10 @@ export interface RunOptions {
 	updates?: "allow" | "refuse" | "commit" | "propose";
 	/** Adds the reporter without passing it the intent options. */
 	withoutReporterOptions?: boolean;
+	/** Leaves the intent reporter out of the config. */
+	withoutReporter?: boolean;
+	/** Sends this token to the cache API, instead of the one it accepts. */
+	cacheToken?: string;
 	/** Passes `--shard` and adds a blob report for `mergeReports` to read. */
 	shard?: string;
 	/** Runs as a GitHub Actions job for this fake's pull request. */
@@ -96,18 +101,18 @@ export interface RunResult {
 export interface ProjectOptions {
 	id: string;
 	moduleType?: "esm" | "cjs";
-	/** Uses a store outside `.intent`, like R2 or the cache API would be. */
-	remoteStore?: boolean;
+	/** Uses `remoteStore` with this cache API, instead of `fileStore`. */
+	cacheApi?: LocalCacheApi;
 }
 
 /** A private copy of the dogfood project, driven by a flow. */
 export class Project {
 	readonly directory: string;
-	readonly #remoteDirectory?: string;
+	readonly #cacheApi?: LocalCacheApi;
 
-	private constructor(directory: string, remoteDirectory?: string) {
+	private constructor(directory: string, cacheApi?: LocalCacheApi) {
 		this.directory = directory;
-		this.#remoteDirectory = remoteDirectory;
+		this.#cacheApi = cacheApi;
 	}
 
 	static async create(options: ProjectOptions): Promise<Project> {
@@ -121,10 +126,7 @@ export class Project {
 				...(options.moduleType === "cjs" ? {} : { type: "module" }),
 			}),
 		);
-		return new Project(
-			directory,
-			options.remoteStore ? `${directory}-remote` : undefined,
-		);
+		return new Project(directory, options.cacheApi);
 	}
 
 	async scriptAgent(script: AgentScript): Promise<void> {
@@ -155,7 +157,7 @@ export class Project {
 	 * reporter reads its own config, so pass the policy the shards ran with.
 	 */
 	async mergeReports(
-		options: Pick<RunOptions, "github" | "updates"> = {},
+		options: Pick<RunOptions, "ci" | "github" | "updates"> = {},
 	): Promise<RunResult> {
 		return this.#runCli(
 			[
@@ -166,6 +168,15 @@ export class Project {
 				"blob-report",
 			],
 			options,
+		);
+	}
+
+	/** Lists the tests with `--list`, which runs none of them. */
+	async list(): Promise<{ exitCode: number; output: string }> {
+		return spawnPlaywright(
+			[PLAYWRIGHT_CLI, "test", "--list", "tests/checkout.spec.ts"],
+			this.directory,
+			this.#environment({}),
 		);
 	}
 
@@ -183,11 +194,6 @@ export class Project {
 			recursive: true,
 		});
 		await fs.writeFile(this.#path(".intent", key), source);
-	}
-
-	async remoteFiles(): Promise<string[]> {
-		if (!this.#remoteDirectory) throw new Error("No remote store configured.");
-		return listFiles(this.#remoteDirectory);
 	}
 
 	async clearLocalSteps(): Promise<void> {
@@ -226,9 +232,6 @@ export class Project {
 
 	async cleanUp(): Promise<void> {
 		await fs.rm(this.directory, { recursive: true, force: true });
-		if (this.#remoteDirectory) {
-			await fs.rm(this.#remoteDirectory, { recursive: true, force: true });
-		}
 	}
 
 	async #runCli(args: string[], options: RunOptions): Promise<RunResult> {
@@ -312,8 +315,10 @@ export class Project {
 			...(options.diagnosePrompt && {
 				INTENT_E2E_DIAGNOSE_PROMPT: options.diagnosePrompt,
 			}),
-			...(this.#remoteDirectory && {
-				INTENT_E2E_REMOTE_DIR: this.#remoteDirectory,
+			...(options.withoutReporter && { INTENT_E2E_NO_REPORTER: "1" }),
+			...(this.#cacheApi && {
+				INTENT_E2E_CACHE_URL: this.#cacheApi.url,
+				INTENT_E2E_CACHE_TOKEN: options.cacheToken ?? LocalCacheApi.TOKEN,
 			}),
 		};
 	}

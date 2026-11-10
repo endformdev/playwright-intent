@@ -9,6 +9,9 @@ export class IntentError extends Error {
 /** `use.intent` is missing something it can't run without. */
 export class IntentConfigError extends IntentError {}
 
+/** The store couldn't read or save steps, so nothing can be trusted to run. */
+export class IntentStoreError extends IntentError {}
+
 /** The store's `updates` policy stopped a step from changing. */
 export class IntentChangeRejectedError extends IntentError {}
 

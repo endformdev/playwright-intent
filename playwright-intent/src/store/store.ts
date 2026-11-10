@@ -4,8 +4,8 @@ import type { ChangeSet } from "../reporter/change-set";
  * Where step source lives. Keys are relative, POSIX-style step paths.
  *
  * Code always runs from `.intent` on disk, because Playwright reads that file
- * for snippets and trace sources. A remote store fills `.intent` before each
- * import, so this stays a plain blob interface like `trace-api`'s storage.
+ * for snippets and trace sources. A remote store fills `.intent` before the
+ * first read, so this stays a plain blob interface.
  */
 export interface IntentStore {
 	get(key: string): Promise<string | null>;
@@ -26,6 +26,13 @@ export interface StepUpdates {
 	awaitsReview: boolean;
 }
 
+/** What the reporter hands a store when it's created. */
+export interface PrepareInput {
+	/** The `.intent` folder. */
+	root: string;
+	env: NodeJS.ProcessEnv;
+}
+
 /** What the reporter hands a store at the end of a run. */
 export interface DeliveryInput {
 	changes: ChangeSet;
@@ -40,6 +47,13 @@ export interface DeliveryInput {
 export interface IntentStoreProvider {
 	/** Opens the store in a worker. `root` is the `.intent` folder. */
 	open(root: string): IntentStore;
+	/**
+	 * Runs in the reporter as soon as it's created, before global setup and
+	 * before any worker starts. Workers inherit environment variables it sets.
+	 * The reporter waits for it before the run ends, and ignores its errors,
+	 * so it should report them to workers itself.
+	 */
+	prepare?(input: PrepareInput): Promise<void>;
 	/** Decides what this run may do with step changes. */
 	updates(env: NodeJS.ProcessEnv): StepUpdates;
 	/** Runs in the reporter, and throws if something couldn't be delivered. */
