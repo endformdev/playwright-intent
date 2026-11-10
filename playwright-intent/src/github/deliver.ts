@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { ChangeSet, RunChange } from "../reporter/change-set";
+import type { DeliveryInput } from "../store/store";
 import {
 	COMMENT_MARKER,
 	renderProposalComment,
@@ -12,15 +13,6 @@ import {
 	type PullRequestEvent,
 	readPullRequestEvent,
 } from "./pull-request";
-
-export interface DeliveryOptions {
-	changes: ChangeSet;
-	/** The `.intent` folder. */
-	root: string;
-	env: NodeJS.ProcessEnv;
-	/** One shard only sees part of a run, so merge-reports delivers instead. */
-	sharded: boolean;
-}
 
 type TreeEntry = {
 	path: string;
@@ -40,23 +32,18 @@ function log(message: string): void {
 	console.log(`[intent] ${message}`);
 }
 
-/** Throws when something should have been delivered and couldn't be. */
-export async function deliverChanges({
-	changes,
-	root,
-	env,
-	sharded,
-}: DeliveryOptions): Promise<void> {
+/**
+ * Commits or proposes the changes from passing tests, by the file store's
+ * policy. Throws when something should have been delivered and couldn't be.
+ */
+export async function deliverToPullRequest(
+	policy: "commit" | "propose",
+	{ changes, root, env, sharded }: DeliveryInput,
+): Promise<void> {
 	if (env.GITHUB_ACTIONS !== "true") return;
-	const commits = changes.passed.filter(
-		({ delivery }) => delivery === "commit",
-	);
-	const proposals = changes.passed.filter(
-		({ delivery }) => delivery === "propose",
-	);
-	const diagnoses = changes.diagnoses.filter(
-		({ delivery }) => delivery === "propose",
-	);
+	const commits = policy === "commit" ? changes.passed : [];
+	const proposals = policy === "propose" ? changes.passed : [];
+	const diagnoses = policy === "propose" ? changes.diagnoses : [];
 	const pending = commits.length + proposals.length + diagnoses.length > 0;
 
 	if (sharded) {

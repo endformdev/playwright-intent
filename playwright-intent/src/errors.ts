@@ -9,7 +9,7 @@ export class IntentError extends Error {
 /** `use.intent` is missing something it can't run without. */
 export class IntentConfigError extends IntentError {}
 
-/** The `changes` policy stopped a step from changing. */
+/** The store's `updates` policy stopped a step from changing. */
 export class IntentChangeRejectedError extends IntentError {}
 
 /**

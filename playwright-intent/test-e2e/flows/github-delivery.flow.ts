@@ -42,13 +42,13 @@ async function breakStep(project: Project, github: FakeGitHub) {
 async function repairInShard(
 	project: Project,
 	github: FakeGitHub,
-	changes: "commit" | "propose",
+	updates: "commit" | "propose",
 ) {
 	await breakStep(project, github);
 	return project.run({
 		shop: "renamed-add-link",
 		retries: 1,
-		changes,
+		updates,
 		shard: "1/1",
 		github,
 	});
@@ -71,7 +71,7 @@ flow.describe("delivering through GitHub", () => {
 	flow("commit puts one commit on the head", async ({ project, github }) => {
 		await repairInShard(project, github, "commit");
 
-		const merged = await project.mergeReports({ github });
+		const merged = await project.mergeReports({ github, updates: "commit" });
 
 		expect(merged.exitCode).toBe(0);
 		expect(github.trees).toHaveLength(1);
@@ -98,7 +98,7 @@ flow.describe("delivering through GitHub", () => {
 			await repairInShard(project, github, "commit");
 			github.refuseComments = true;
 
-			const merged = await project.mergeReports({ github });
+			const merged = await project.mergeReports({ github, updates: "commit" });
 
 			expect(merged.exitCode).toBe(0);
 			expect(github.commits).toHaveLength(1);
@@ -111,7 +111,7 @@ flow.describe("delivering through GitHub", () => {
 			await repairInShard(project, github, "commit");
 			github.currentHead = "ccccccc3333";
 
-			const merged = await project.mergeReports({ github });
+			const merged = await project.mergeReports({ github, updates: "commit" });
 
 			expect(merged.output).toContain("moved on from");
 			expect(github.trees).toEqual([]);
@@ -124,7 +124,7 @@ flow.describe("delivering through GitHub", () => {
 			return github.files.get(REPO_FILE) as string;
 		})();
 
-		await project.mergeReports({ github });
+		await project.mergeReports({ github, updates: "propose" });
 
 		expect(github.commits).toEqual([]);
 		expect(github.comments).toHaveLength(1);
@@ -142,9 +142,9 @@ flow.describe("delivering through GitHub", () => {
 
 	flow("a rerun updates the same comment", async ({ project, github }) => {
 		await repairInShard(project, github, "propose");
-		await project.mergeReports({ github });
+		await project.mergeReports({ github, updates: "propose" });
 
-		await project.mergeReports({ github });
+		await project.mergeReports({ github, updates: "propose" });
 
 		expect(github.comments).toHaveLength(1);
 		expect(github.requests.filter((r) => r.startsWith("POST"))).toHaveLength(1);
@@ -154,17 +154,17 @@ flow.describe("delivering through GitHub", () => {
 		"a run with nothing to propose settles the comment",
 		async ({ project, github }) => {
 			await repairInShard(project, github, "propose");
-			await project.mergeReports({ github });
+			await project.mergeReports({ github, updates: "propose" });
 			await project.scriptAgent({});
 			await project.run({
 				shop: "renamed-add-link",
 				retries: 1,
-				changes: "propose",
+				updates: "propose",
 				shard: "1/1",
 				github,
 			});
 
-			await project.mergeReports({ github });
+			await project.mergeReports({ github, updates: "propose" });
 
 			expect(github.comments[0]?.body).toContain("No step fixes to propose");
 		},
@@ -176,7 +176,7 @@ flow.describe("delivering through GitHub", () => {
 			await repairInShard(project, github, "commit");
 			await project.clearLocalSteps();
 
-			await project.mergeReports({ github });
+			await project.mergeReports({ github, updates: "commit" });
 
 			expect(github.trees[0]?.tree[0]?.content).toContain("Buy blue shirt");
 		},
@@ -186,7 +186,7 @@ flow.describe("delivering through GitHub", () => {
 		await repairInShard(project, github, "commit");
 		github.refuseWrites = true;
 
-		const merged = await project.mergeReports({ github });
+		const merged = await project.mergeReports({ github, updates: "commit" });
 
 		expect(merged.exitCode).toBe(1);
 		expect(merged.output).toContain("Couldn't deliver the step changes");
@@ -200,7 +200,7 @@ flow.describe("delivering through GitHub", () => {
 
 			const run = await project.run({
 				shop: "renamed-add-link",
-				changes: "commit",
+				updates: "commit",
 				github,
 			});
 
@@ -226,13 +226,13 @@ flow.describe("delivering through GitHub", () => {
 
 		const run = await project.run({
 			retries: 1,
-			changes: "commit",
+			updates: "commit",
 			github,
 			fromFork: true,
 		});
 
 		expect(run.test(CHECKOUT_TEST).errors[0]).toContain(
-			"The changes policy refused a step change",
+			"The updates policy refused",
 		);
 		expect(await project.agentCalls()).toEqual([]);
 	});

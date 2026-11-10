@@ -9,12 +9,11 @@ import {
 } from "../src/store/change-record";
 
 const write = (key: string, reason?: string): ChangeRecord => ({
-	version: 1,
+	version: 2,
 	kind: "write",
 	key,
 	cause: "repair",
 	source: "abc",
-	delivery: "commit",
 	...(reason && { reason }),
 });
 const failed = (...records: ChangeRecord[]): AttemptChanges => ({
@@ -35,7 +34,6 @@ test("a change is kept when a later attempt passes", () => {
 			cause: "repair",
 			reason: "Renamed",
 			source: "abc",
-			delivery: "commit",
 			tests: ["a"],
 		},
 	]);
@@ -85,20 +83,18 @@ test("tests that pass with the same file are listed together", () => {
 
 test("a regenerated step keeps the reason it was deleted", () => {
 	const remove: ChangeRecord = {
-		version: 1,
+		version: 2,
 		kind: "delete",
 		key: "a.ts",
 		cause: "regenerate",
 		reason: "Stale",
-		delivery: "commit",
 	};
 	const generate: ChangeRecord = {
-		version: 1,
+		version: 2,
 		kind: "write",
 		key: "a.ts",
 		cause: "generate",
 		source: "def",
-		delivery: "commit",
 	};
 
 	const set = buildChangeSet([
@@ -112,10 +108,9 @@ test("a regenerated step keeps the reason it was deleted", () => {
 
 test("only a test's latest diagnosis is kept", () => {
 	const diagnosis = (reason: string): ChangeRecord => ({
-		version: 1,
+		version: 2,
 		kind: "diagnosis",
 		reason,
-		delivery: "commit",
 	});
 
 	const set = buildChangeSet([
@@ -129,9 +124,7 @@ test("only a test's latest diagnosis is kept", () => {
 	]);
 
 	expect(set.passed).toEqual([]);
-	expect(set.diagnoses).toEqual([
-		{ test: "a", reason: "Payments are down", delivery: "commit" },
-	]);
+	expect(set.diagnoses).toEqual([{ test: "a", reason: "Payments are down" }]);
 });
 
 test.each([
@@ -147,7 +140,7 @@ test.each([
 
 test("records from another version or that aren't JSON are rejected", () => {
 	expect(
-		parseChangeRecord(JSON.stringify({ ...write("a.ts"), version: 2 })),
+		parseChangeRecord(JSON.stringify({ ...write("a.ts"), version: 1 })),
 	).toBeNull();
 	expect(parseChangeRecord("not json")).toBeNull();
 	expect(parseChangeRecord("null")).toBeNull();

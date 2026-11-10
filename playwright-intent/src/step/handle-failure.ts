@@ -103,16 +103,6 @@ async function diagnoseFailure(
 	const canContinue = scope.testInfo.status === "passed";
 	const intent = step?.intent ?? "";
 
-	try {
-		await scope.checkChange({
-			type: "diagnose",
-			...(step && { intent, key: step.key }),
-		});
-	} catch (cause) {
-		report(scope, `Skipped the diagnosis: ${errorMessage(cause)}`);
-		return { outcome: "failed" };
-	}
-
 	scope.testInfo.setTimeout(scope.testInfo.timeout + scope.limits.timeoutMs);
 
 	let decision: DiagnoseOutcome;

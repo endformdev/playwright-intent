@@ -1,22 +1,35 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { Changes } from "./changes";
+import { deliverToPullRequest } from "../github/deliver";
 import { ignoreMissing, writeFileAtomic } from "./local-files";
 import type { IntentStore, IntentStoreProvider } from "./store";
+import {
+	type FileStoreUpdates,
+	fileStoreUpdates,
+	resolveUpdatePolicy,
+} from "./update-policy";
 
-export type {
-	ChangeCheck,
-	ChangeDelivery,
-	ChangePolicy,
-	Changes,
-	NamedChangePolicy,
-	StepChange,
-} from "./changes";
-export { allow, commit, propose, refuse } from "./changes";
+export type { FileStoreUpdates, UpdatePolicy } from "./update-policy";
+export { allow, commit, propose, refuse } from "./update-policy";
+
+export interface FileStoreOptions {
+	/** What happens when the agent would change a step. */
+	updates: FileStoreUpdates;
+}
 
 /** Keeps steps in `.intent` beside the config, usually committed to Git. */
-export function fileStore(options: { changes: Changes }): IntentStoreProvider {
-	return { changes: options.changes, open: openFileStore };
+export function fileStore(options: FileStoreOptions): IntentStoreProvider {
+	return {
+		open: openFileStore,
+		updates: (env) =>
+			fileStoreUpdates(resolveUpdatePolicy(options.updates, env)),
+		async deliver(input) {
+			const { name } = resolveUpdatePolicy(options.updates, input.env);
+			if (name === "commit" || name === "propose") {
+				await deliverToPullRequest(name, input);
+			}
+		},
+	};
 }
 
 /**

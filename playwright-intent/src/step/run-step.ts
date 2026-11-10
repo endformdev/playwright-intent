@@ -9,6 +9,7 @@ import {
 import { createAgentSession } from "../agent/session";
 import {
 	IntentAgentFailedError,
+	IntentChangeRejectedError,
 	IntentDuplicateStepError,
 	IntentError,
 	IntentNoAgentError,
@@ -169,7 +170,12 @@ async function generateStep(
 	intent: string,
 	line: number | undefined,
 ): Promise<string> {
-	await scope.checkChange({ type: "generate", intent, key });
+	if (scope.updates.refused) {
+		throw new IntentChangeRejectedError(
+			`The updates policy refused to generate "${intent}" at .intent/${key}. ` +
+				"Run this where changes can be kept, then commit them.",
+		);
+	}
 	if (!scope.agent) {
 		throw new IntentNoAgentError(
 			`Generating "${intent}" needs use.intent.model in playwright.config.ts.`,
