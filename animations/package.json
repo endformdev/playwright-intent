@@ -1,0 +1,22 @@
+{
+	"name": "@playwright-intent/animations",
+	"private": true,
+	"type": "module",
+	"license": "Apache-2.0",
+	"scripts": {
+		"preview": "node --disable-warning=ExperimentalWarning src/preview.ts",
+		"render": "node --disable-warning=ExperimentalWarning src/render.ts",
+		"stills": "node --disable-warning=ExperimentalWarning src/stills.ts"
+	},
+	"devDependencies": {
+		"@fontsource/inter": "^5.3.0",
+		"@fontsource/jetbrains-mono": "^5.3.0",
+		"@playwright/test": "catalog:",
+		"@types/node": "catalog:",
+		"sharp": "^0.35.5",
+		"typescript": "catalog:"
+	},
+	"engines": {
+		"node": ">=24.0.0"
+	}
+}

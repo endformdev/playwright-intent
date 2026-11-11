@@ -1,5 +1,9 @@
 {
 	"extends": "./tsconfig.options.json",
 	"files": [],
-	"references": [{ "path": "cache-api" }, { "path": "playwright-intent" }]
+	"references": [
+		{ "path": "animations" },
+		{ "path": "cache-api" },
+		{ "path": "playwright-intent" }
+	]
 }

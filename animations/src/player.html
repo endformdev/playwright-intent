@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Playwright Intent animations</title>
+		<link rel="stylesheet" href="/runtime/theme.css" />
+		<style>
+			body {
+				margin: 0;
+				background: #1a1b1e;
+				color: #ddd;
+				font:
+					13px/1.4 system-ui,
+					sans-serif;
+			}
+			body.capture {
+				background: transparent;
+			}
+			#viewport {
+				padding: 24px 24px 12px;
+			}
+			body.capture #viewport {
+				padding: 0;
+			}
+			#frame {
+				transform-origin: 0 0;
+			}
+			#controls {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 10px;
+				align-items: center;
+				padding: 0 24px 24px;
+			}
+			#controls input[type="range"] {
+				flex: 1;
+				min-width: 240px;
+			}
+			#controls button,
+			#controls select {
+				font: inherit;
+				padding: 4px 10px;
+				border-radius: 6px;
+				border: 1px solid #444;
+				background: #2a2b2f;
+				color: inherit;
+			}
+			#time {
+				font-variant-numeric: tabular-nums;
+				width: 110px;
+			}
+			#chapters {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 6px;
+				width: 100%;
+			}
+			#chapters button.current {
+				border-color: #f5e000;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="viewport"><div id="frame"></div></div>
+		<div id="controls" hidden>
+			<select id="scene"></select>
+			<button id="play">Pause</button>
+			<input id="scrub" type="range" min="0" step="0.001" />
+			<span id="time"></span>
+			<select id="speed">
+				<option value="0.25">0.25×</option>
+				<option value="0.5">0.5×</option>
+				<option value="1" selected>1×</option>
+				<option value="2">2×</option>
+			</select>
+			<button id="theme"></button>
+			<div id="chapters"></div>
+		</div>
+		<script type="module" src="/runtime/player.ts"></script>
+	</body>
+</html>
