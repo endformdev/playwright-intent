@@ -1,6 +1,6 @@
 {
 	"name": "@playwright-intent/cache-api",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"description": "H3-based API library for sharing Playwright Intent steps through S3-compatible storage.",
 	"type": "module",
 	"license": "Apache-2.0",
