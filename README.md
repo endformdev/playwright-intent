@@ -9,6 +9,13 @@
 	<a href="LICENSE"><img src="https://img.shields.io/npm/l/playwright-intent" alt="license" /></a>
 </p>
 
+<p align="center">
+	<picture>
+		<source media="(prefers-color-scheme: dark)" srcset="docs/assets/animations/overview-dark.webp" />
+		<img src="docs/assets/animations/overview-light.webp" width="100%" alt="A Playwright test's steps become one ai.do intent. The agent writes the step once as a TypeScript file, it's reviewed in a pull request, and later runs replay it without AI. When the app changes, the agent repairs the step and commits the fix." />
+	</picture>
+</p>
+
 ---
 
 Write Playwright steps in plain language. An agent turns each one into TypeScript once, and every later run replays that code like any other Playwright test.
