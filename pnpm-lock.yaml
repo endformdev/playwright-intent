@@ -92,6 +92,21 @@ importers:
         specifier: 'catalog:'
         version: 6.0.3
 
+  vscode-extension:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.9
+      '@types/vscode':
+        specifier: ~1.100.0
+        version: 1.100.0
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.22.14(typescript@6.0.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
 packages:
 
   '@ai-sdk/gateway@4.0.136':
@@ -481,6 +496,9 @@ packages:
 
   '@types/node@25.9.9':
     resolution: {integrity: sha512-b4e2xxj/yMeT2hNlD6x7zNFiQK2Dlmkb9CQ6v3/1G2RezKN4YS2lcEv8lzGm1mhs4f2lM4yNAMI/zUDBZBBt7w==}
+
+  '@types/vscode@1.100.0':
+    resolution: {integrity: sha512-4uNyvzHoraXEeCamR3+fzcBlh7Afs4Ifjs4epINyUX/jvdk0uzLnwiDY35UKDKnkCHP5Nu3dljl2H8lR6s+rQw==}
 
   '@vercel/oidc@3.2.0':
     resolution: {integrity: sha512-UycprH3T6n3jH0k44NHMa7pnFHGu/N05MjojYr+Mc6I7obkoLIJujSWwin1pCvdy/eOxrI/l3uDLQsmcrOb4ug==}
@@ -1353,6 +1371,8 @@ snapshots:
   '@types/node@25.9.9':
     dependencies:
       undici-types: 7.24.6
+
+  '@types/vscode@1.100.0': {}
 
   '@vercel/oidc@3.2.0': {}
 
