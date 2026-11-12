@@ -240,6 +240,18 @@ Or pass your own text to replace a prompt completely. The agent's tools stay the
 
 Changing a prompt doesn't change steps you've already saved. Delete them from `.intent` to regenerate them, and keep them in Git first.
 
+## Editor support
+
+The [Playwright Intent extension](vscode-extension) for VS Code links each `ai.do` to its step. Cmd+click (Ctrl+click) on an intent opens its step, and hovering over the intent or its `do` shows the step's code. It works with any TypeScript version, and needs no setup.
+
+To suggest it to everyone who opens your repository, add it to `.vscode/extensions.json`:
+
+```json
+{ "recommendations": ["endform.playwright-intent-vscode"] }
+```
+
+The extension finds a step from the titles of the `test` and `test.describe` calls around it. When those aren't string literals, as in a loop, or when `ai.do` is called from a helper, it offers every step with the same intent instead. Steps from a remote store show up once a run has downloaded them to `.intent`.
+
 ## Project status
 
 This is early, and the API may change. See [docs/design.md](docs/design.md) for how it works.
