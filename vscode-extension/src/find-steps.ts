@@ -3,7 +3,7 @@ import path from "node:path";
 import { parseStepCode } from "../../playwright-intent/src/step/step-file";
 import {
 	INTENT_DIRECTORY,
-	sanitizeSegment,
+	slugify,
 	stepKey,
 } from "../../playwright-intent/src/step/step-path";
 import type { IntentCall } from "./intent-call";
@@ -37,13 +37,13 @@ export function findSteps(
 		if (step) return [step];
 	}
 
-	const name = `${sanitizeSegment(call.intent)}.ts`;
+	const name = `${slugify(call.intent)}.ts`;
 	const keys = fs
 		.readdirSync(root, { recursive: true, encoding: "utf8" })
 		.filter((file) => path.basename(file) === name)
 		.map((file) => file.split(path.sep).join("/"))
 		.sort();
-	const prefix = `${testFile.split(path.sep).join("/")}/`;
+	const prefix = `${testFile.split(path.sep).map(slugify).join("/")}/`;
 	const inTestFile = keys.filter((key) => key.startsWith(prefix));
 
 	return (inTestFile.length > 0 ? inTestFile : keys).flatMap(
