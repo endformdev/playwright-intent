@@ -21,7 +21,7 @@ export class IntentChangeRejectedError extends IntentError {}
  */
 export class IntentChangeProposedError extends IntentError {}
 
-/** Two `ai.do` calls in one test sanitize to the same step file. */
+/** Two `ai.do` calls in one test map to the same step file. */
 export class IntentDuplicateStepError extends IntentError {}
 
 /** A stored step belongs to a different test, or isn't a step file at all. */

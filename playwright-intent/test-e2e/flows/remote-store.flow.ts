@@ -7,10 +7,10 @@ import {
 	checkoutScript,
 	INTENT,
 	solved,
+	STEP_FILE,
 } from "../harness/shop-steps";
 
-const FOLDER = "tests/checkout.spec.ts/checkout - guest buys a shirt";
-const ADD_FILE = `${FOLDER}/${INTENT.add}.ts`;
+const ADD_FILE = STEP_FILE.add;
 const FIXED_ADD = CODE.add.replace("Add blue shirt", "Buy blue shirt");
 
 /** A CI run that generates the checkout steps and uploads them. */

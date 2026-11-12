@@ -1,8 +1,6 @@
 import { expect, flow } from "../harness/flow";
-import { CHECKOUT_TEST, CODE, INTENT } from "../harness/shop-steps";
+import { CHECKOUT_TEST, CODE, INTENT, STEP_FILE } from "../harness/shop-steps";
 import type { ModelTurn } from "../project/scripted-model";
-
-const STEP_FILE = `tests/checkout.spec.ts/checkout - guest buys a shirt/${INTENT.add}.ts`;
 
 const steps: [string, ModelTurn["input"]["code"]][] = [
 	[INTENT.add, CODE.add],
@@ -26,7 +24,7 @@ flow.describe("the built-in agent", () => {
 
 			expect(generated.exitCode).toBe(0);
 			expect(replayed.exitCode).toBe(0);
-			expect(await project.readStep(STEP_FILE)).toContain(
+			expect(await project.readStep(STEP_FILE.add)).toContain(
 				'getByRole("link", { name: "Add blue shirt" })',
 			);
 			expect(await project.modelCalls()).toHaveLength(solveEveryStep.length);

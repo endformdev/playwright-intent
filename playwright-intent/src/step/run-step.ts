@@ -105,7 +105,7 @@ async function readStep(
 	if (header === null || header.test !== scope.testTitle) {
 		throw new IntentStepConflictError(
 			`.intent/${key} doesn't belong to "${scope.testTitle}". Two test ` +
-				"titles may have sanitized to the same folder, or its header was edited.",
+				"titles may map to the same folder, or its header was edited.",
 		);
 	}
 	return header.intent === intent ? source : null;

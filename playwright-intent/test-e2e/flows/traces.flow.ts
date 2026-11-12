@@ -1,13 +1,16 @@
 import { expect, flow } from "../harness/flow";
-import { CHECKOUT_TEST, checkoutScript, INTENT } from "../harness/shop-steps";
-
-const STEP_FILE = `tests/checkout.spec.ts/checkout - guest buys a shirt/${INTENT.add}.ts`;
+import {
+	CHECKOUT_TEST,
+	checkoutScript,
+	INTENT,
+	STEP_FILE,
+} from "../harness/shop-steps";
 
 flow.describe("traces and errors", () => {
 	flow("a replayed step shows real lines in the trace", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
 		await project.run();
-		const source = await project.readStep(STEP_FILE);
+		const source = await project.readStep(STEP_FILE.add);
 		const clickLine = lineContaining(source, "Add blue shirt");
 
 		const replay = await project.run();
@@ -15,7 +18,7 @@ flow.describe("traces and errors", () => {
 		const { actions, sources } = replay.test(CHECKOUT_TEST).trace();
 		expect(actions).toContainEqual(
 			expect.objectContaining({
-				file: `${INTENT.add}.ts`,
+				file: "add-the-blue-shirt-to-the-cart.ts",
 				line: clickLine,
 			}),
 		);
@@ -25,7 +28,7 @@ flow.describe("traces and errors", () => {
 	flow("a stale step reports the exact failing line", async ({ project }) => {
 		await project.scriptAgent(checkoutScript());
 		await project.run();
-		const source = await project.readStep(STEP_FILE);
+		const source = await project.readStep(STEP_FILE.add);
 
 		const run = await project.run({ ci: true, shop: "renamed-add-link" });
 
