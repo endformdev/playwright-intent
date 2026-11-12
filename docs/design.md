@@ -17,14 +17,16 @@ test("checkout", async ({ page, ai }) => {
 A step's path is a literal translation of where it's called from, with no hashes or lockfile:
 
 ```text
-.intent/tests/checkout/cart.spec.ts/cart - guest checkout/fill out the checkout.ts
+.intent/tests/checkout/cart.spec.ts/cart--guest-checkout/fill-out-the-checkout.ts
 ```
+
+Every name is lowercased and keeps only letters, digits, `.`, `_` and `-`, so paths work unquoted in shells, globs, `.gitignore` and URLs on macOS, Linux and Windows. Spaces and other characters become `-`, apostrophes are dropped, and `{email}` becomes `email`. Describe and test titles are joined with `--`. Names are cut to 64 characters, and Windows reserved names like `con` get a leading `_`.
 
 `.intent` sits beside the Playwright config. Each file's header holds the exact intent and test:
 
 - A changed intent is a cache miss.
 - A different test is a loud error, because two titles collided.
-- Two sanitized names that match in one test are also a loud error.
+- Two intents that map to the same file name in one test are also a loud error.
 
 Steps receive `{ page, context, request, expect, vars }` and may only use `import type`, so changes to other helpers can't break them.
 

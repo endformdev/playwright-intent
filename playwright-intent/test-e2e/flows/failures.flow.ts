@@ -6,13 +6,13 @@ import {
 	checkoutScript,
 	INTENT,
 	solved,
+	STEP_FILE,
 } from "../harness/shop-steps";
 
 const FIXED_ADD = CODE.add.replace("Add blue shirt", "Buy blue shirt");
-const FOLDER = "tests/checkout.spec.ts/checkout - guest buys a shirt";
-const ADD_FILE = `${FOLDER}/${INTENT.add}.ts`;
-const CHECKOUT_FILE = `${FOLDER}/${INTENT.checkout}.ts`;
-const PAY_FILE = `${FOLDER}/${INTENT.pay}.ts`;
+const ADD_FILE = STEP_FILE.add;
+const CHECKOUT_FILE = STEP_FILE.checkout;
+const PAY_FILE = STEP_FILE.pay;
 
 /** Clicks, so the page moves on, then fails. */
 const FAILS_AFTER_CLICKING = `${CODE.add}

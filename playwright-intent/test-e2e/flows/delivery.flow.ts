@@ -7,13 +7,13 @@ import {
 	INTENT,
 	solved,
 	solvedButDirty,
+	STEP_FILE,
 } from "../harness/shop-steps";
 
 const FIXED_ADD = CODE.add.replace("Add blue shirt", "Buy blue shirt");
-const FOLDER = "tests/checkout.spec.ts/checkout - guest buys a shirt";
-const ADD_FILE = `${FOLDER}/${INTENT.add}.ts`;
-const CHECKOUT_FILE = `${FOLDER}/${INTENT.checkout}.ts`;
-const PAY_FILE = `${FOLDER}/${INTENT.pay}.ts`;
+const ADD_FILE = STEP_FILE.add;
+const CHECKOUT_FILE = STEP_FILE.checkout;
+const PAY_FILE = STEP_FILE.pay;
 const REASON = "The link was renamed.";
 
 function repairAdd() {
@@ -331,10 +331,10 @@ flow.describe("commit and propose", () => {
 			const set = merged.reported;
 			expect(set.passed.map((change) => change.key)).toEqual([
 				ADD_FILE,
-				`tests/second.spec.ts/${second}/${second}.ts`,
+				"tests/second.spec.ts/put-the-blue-shirt-in-the-cart/put-the-blue-shirt-in-the-cart.ts",
 			]);
 			expect(set.failed.map((change) => change.key)).toEqual([
-				`tests/third.spec.ts/${third}/${third}.ts`,
+				"tests/third.spec.ts/grab-the-blue-shirt/grab-the-blue-shirt.ts",
 			]);
 			expect(merged.test(CHECKOUT_TEST).changes).toHaveLength(1);
 			expect(merged.output).toContain("Step changes from passing tests (2)");
