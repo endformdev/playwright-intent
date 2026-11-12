@@ -114,7 +114,7 @@ export default defineScene({
 
 		// The generated step, shown under the `ai.do` line.
 		const step = peek({
-			path: ".intent/…/checkout/add the cheapest shirt to the cart.ts",
+			path: ".intent/…/add-the-cheapest-shirt-to-the-cart.ts",
 			lines: [
 				{ code: '// intent: "add the cheapest shirt to the cart"' },
 				{ code: '// test: "checkout"' },
@@ -301,7 +301,7 @@ export default defineScene({
 		);
 		const specFile = fileRow("tests/checkout.spec.ts", "+3 −6");
 		const stepFile = fileRow(
-			".intent/tests/checkout.spec.ts/checkout/add the cheapest shirt to the cart.ts",
+			".intent/tests/checkout.spec.ts/checkout/add-the-cheapest-shirt-to-the-cart.ts",
 			"+10",
 		);
 		const approval = h(
@@ -495,7 +495,7 @@ export default defineScene({
 						h(
 							"code.muted",
 							...breakable(
-								"- repair .intent/tests/checkout.spec.ts/checkout/add the cheapest shirt to the cart.ts",
+								"- repair .intent/tests/checkout.spec.ts/checkout/add-the-cheapest-shirt-to-the-cart.ts",
 							),
 						),
 					),

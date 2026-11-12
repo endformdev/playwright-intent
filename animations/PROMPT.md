@@ -48,7 +48,7 @@ The left editor stays in place the whole time. The right column (x 612, width 32
 - Measure layout at build time, after appending and before anything hides. `expand` and `collapse` measure natural height even inside hidden ancestors. `offsetWithin` uses layout offsets, so the preview's scaling doesn't affect it.
 - `type` and `erase` count a tab as two characters, matching `tab-size: 2`.
 - Nothing random, and no timers. Use `tl.loop` for spinners.
-- Keep code true to the library: the real API, the step file format (`renderStepFile` in `playwright-intent/src/step/step-file.ts`), step paths (`.intent/<test file>/<titles>/<intent>.ts`), and commit messages (`commitMessage` in `playwright-intent/src/github/deliver.ts`). Check them against the source before showing them.
+- Keep code true to the library: the real API, the step file format (`renderStepFile` in `playwright-intent/src/step/step-file.ts`), step paths (`.intent/<test file>/<titles>/<intent>.ts`, slugified with dashes by `stepKey` in `playwright-intent/src/step/step-path.ts`), and commit messages (`commitMessage` in `playwright-intent/src/github/deliver.ts`). Check them against the source before showing them.
 - Don't put `id="scene"` or similar on page elements: named access on `window` once shadowed the renderer's global, which is why it's called `window.animation`.
 
 ## Rendering, and why it's set up this way
