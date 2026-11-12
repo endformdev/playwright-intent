@@ -242,7 +242,7 @@ Changing a prompt doesn't change steps you've already saved. Delete them from `.
 
 ## Editor support
 
-The [Playwright Intent extension](vscode-extension) for VS Code links each `ai.do` to its step. Cmd+click (Ctrl+click) on an intent opens its step, and hovering over the intent or its `do` shows the step's code. It works with any TypeScript version, and needs no setup.
+The [Playwright Intent extension](vscode-extension) for VS Code links each `ai.do` to its step. Cmd+click (Ctrl+click) on an intent opens its step, and hovering over the intent or its `do` shows the step's code.
 
 To suggest it to everyone who opens your repository, add it to `.vscode/extensions.json`:
 
