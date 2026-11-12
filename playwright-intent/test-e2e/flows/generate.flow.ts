@@ -6,9 +6,8 @@ import {
 	failed,
 	INTENT,
 	solvedButDirty,
+	STEP_FILE,
 } from "../harness/shop-steps";
-
-const CHECKOUT_FOLDER = "tests/checkout.spec.ts/checkout - guest buys a shirt";
 
 flow.describe("generating steps", () => {
 	flow(
@@ -21,9 +20,9 @@ flow.describe("generating steps", () => {
 			expect(run.exitCode).toBe(0);
 			expect(run.test(CHECKOUT_TEST).attempts).toEqual(["passed"]);
 			expect(await project.stepFiles()).toEqual([
-				`${CHECKOUT_FOLDER}/add the blue shirt to the cart.ts`,
-				`${CHECKOUT_FOLDER}/go to checkout.ts`,
-				`${CHECKOUT_FOLDER}/pay as {email}.ts`,
+				STEP_FILE.add,
+				STEP_FILE.checkout,
+				STEP_FILE.pay,
 			]);
 		},
 	);
@@ -42,9 +41,9 @@ flow.describe("generating steps", () => {
 
 		const [call] = await project.agentCalls();
 		expect(call?.logs).toEqual(["looking around"]);
-		expect(
-			await project.readStep(`${CHECKOUT_FOLDER}/${INTENT.add}.ts`),
-		).not.toContain("looking around");
+		expect(await project.readStep(STEP_FILE.add)).not.toContain(
+			"looking around",
+		);
 	});
 
 	flow(

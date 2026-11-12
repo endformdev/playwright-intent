@@ -10,10 +10,11 @@ import {
 	CODE,
 	checkoutScript,
 	INTENT,
+	STEP_FILE,
 } from "../harness/shop-steps";
 
 const FIXED_ADD = CODE.add.replace("Add blue shirt", "Buy blue shirt");
-const ADD_FILE = `tests/checkout.spec.ts/checkout - guest buys a shirt/${INTENT.add}.ts`;
+const ADD_FILE = STEP_FILE.add;
 const REPO_FILE = `.intent/${ADD_FILE}`;
 
 /** Generates the steps, then scripts a repair for one that's about to break. */

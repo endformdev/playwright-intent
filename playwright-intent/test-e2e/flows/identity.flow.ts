@@ -18,7 +18,7 @@ flow.describe("step identity", () => {
 
 		const [first] = await project.stepFiles();
 		expect(first).toBe(
-			"tests/checkout.spec.ts/checkout - guest buys a shirt/add the blue shirt to the cart.ts",
+			"tests/checkout.spec.ts/checkout--guest-buys-a-shirt/add-the-blue-shirt-to-the-cart.ts",
 		);
 	});
 
@@ -68,7 +68,7 @@ flow.describe("step identity", () => {
 		await project.run();
 
 		const key =
-			"tests/checkout.spec.ts/checkout - guest buys a shirt/go to checkout.ts";
+			"tests/checkout.spec.ts/checkout--guest-buys-a-shirt/go-to-checkout.ts";
 		const source = await project.readStep(key);
 		await project.writeStep(
 			key,
@@ -81,7 +81,7 @@ flow.describe("step identity", () => {
 	});
 
 	flow("a long intent cut to the same name is a miss", async ({ project }) => {
-		// Both intents share their first 150 bytes, so they share a file. The
+		// Both intents share their first 64 characters, so they share a file. The
 		// header holds the exact text, so this must regenerate, not reuse it.
 		const start = `add the blue shirt ${"very ".repeat(40)}`;
 		const first = `${start}quickly`;

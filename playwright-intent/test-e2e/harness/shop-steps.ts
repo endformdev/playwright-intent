@@ -9,6 +9,16 @@ export const INTENT = {
 	pay: "pay as {email}",
 };
 
+/** Where the checkout test's steps are saved, under `.intent`. */
+export const CHECKOUT_FOLDER =
+	"tests/checkout.spec.ts/checkout--guest-buys-a-shirt";
+
+export const STEP_FILE = {
+	add: `${CHECKOUT_FOLDER}/add-the-blue-shirt-to-the-cart.ts`,
+	checkout: `${CHECKOUT_FOLDER}/go-to-checkout.ts`,
+	pay: `${CHECKOUT_FOLDER}/pay-as-email.ts`,
+};
+
 /** Correct step code for the `baseline` shop. */
 export const CODE = {
 	add: `await page.getByRole("link", { name: "Add blue shirt" }).click();

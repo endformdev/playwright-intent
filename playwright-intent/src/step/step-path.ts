@@ -2,12 +2,21 @@ import path from "node:path";
 
 export const INTENT_DIRECTORY = ".intent";
 
-const MAX_SEGMENT_BYTES = 150;
+/** Keeps whole paths under Windows' 260 character limit. */
+const MAX_NAME_CHARACTERS = 64;
+/** Some Linux filesystems allow fewer than 255 bytes per name. */
+const MAX_NAME_BYTES = 150;
 const STEP_EXTENSION = ".ts";
-const TITLE_SEPARATOR = " - ";
+/** Unambiguous, because runs of `-` inside a name collapse to one. */
+const TITLE_SEPARATOR = "--";
 
-const UNSAFE_CHARACTERS = /[<>:"/\\|?*\p{Cc}]+/gu;
-const WINDOWS_RESERVED_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/;
+const APOSTROPHES = /['’]/g;
+/** Everything but letters, digits, `.` and `_`, including spaces. */
+const UNSAFE_CHARACTERS = /[^\p{L}\p{M}\p{N}._]+/gu;
+const EDGE_PUNCTUATION = /^[-._]+|[-._]+$/g;
+/** Windows reserves these even with an extension, like `con.ts`. */
+const WINDOWS_RESERVED_NAME =
+	/^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\.|$)/;
 
 export interface StepIdentity {
 	/** The test file, relative to the Playwright config. */
@@ -28,43 +37,44 @@ export function configDirectory(config: {
 
 /**
  * The store key for a step. It's a literal translation of where the call is:
- * `tests/cart.spec.ts/cart - guest checkout/fill out the checkout.ts`
+ * `tests/cart.spec.ts/cart--guest-checkout/fill-out-the-checkout.ts`
  */
 export function stepKey({ testFile, titles, intent }: StepIdentity): string {
-	const fileSegments = testFile
-		.split(/[\\/]/)
-		.map((segment) => (segment === ".." ? "__" : segment));
-
 	return [
-		...fileSegments,
-		sanitizeSegment(titles.join(TITLE_SEPARATOR)),
-		`${sanitizeSegment(intent)}${STEP_EXTENSION}`,
+		...testFile.split(/[\\/]/).map(slugify),
+		titles.map(slugify).join(TITLE_SEPARATOR),
+		`${slugify(intent)}${STEP_EXTENSION}`,
 	].join("/");
 }
 
-/** Deterministic across macOS, Linux and Windows filesystems. */
-export function sanitizeSegment(text: string): string {
-	const sanitized = cutToBytes(
+/**
+ * A file or folder name that's the same on macOS, Linux and Windows, and that
+ * needs no quoting in shells, globs, `.gitignore` or URLs.
+ */
+export function slugify(text: string): string {
+	const slug = cut(
 		text
 			.normalize("NFC")
 			.toLowerCase()
+			.replace(APOSTROPHES, "")
 			.replace(UNSAFE_CHARACTERS, "-")
-			.replace(/\s+/g, " ")
-			.trim(),
-		MAX_SEGMENT_BYTES,
-	).replace(/[. ]+$/, "");
+			.replace(EDGE_PUNCTUATION, ""),
+	).replace(EDGE_PUNCTUATION, "");
 
-	if (!sanitized) return "_";
-	return WINDOWS_RESERVED_NAME.test(sanitized) ? `_${sanitized}` : sanitized;
+	if (!slug) return "_";
+	return WINDOWS_RESERVED_NAME.test(slug) ? `_${slug}` : slug;
 }
 
-function cutToBytes(text: string, maxBytes: number): string {
+/** Cuts to the name limits without splitting a character. */
+function cut(text: string): string {
+	let characters = 0;
 	let bytes = 0;
-	let cut = "";
+	let result = "";
 	for (const character of text) {
+		characters += 1;
 		bytes += Buffer.byteLength(character);
-		if (bytes > maxBytes) break;
-		cut += character;
+		if (characters > MAX_NAME_CHARACTERS || bytes > MAX_NAME_BYTES) break;
+		result += character;
 	}
-	return cut;
+	return result;
 }
