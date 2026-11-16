@@ -1,0 +1,46 @@
+{
+	"name": "playwright-intent-vscode",
+	"displayName": "Playwright Intent",
+	"description": "Go from an ai.do intent to the step it runs, and see the step's code on hover.",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"publisher": "endform",
+	"license": "Apache-2.0",
+	"homepage": "https://github.com/endformdev/playwright-intent#editor-support",
+	"bugs": {
+		"url": "https://github.com/endformdev/playwright-intent/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/endformdev/playwright-intent.git",
+		"directory": "vscode-extension"
+	},
+	"categories": [
+		"Testing"
+	],
+	"keywords": [
+		"playwright",
+		"playwright-intent"
+	],
+	"engines": {
+		"vscode": "^1.100.0"
+	},
+	"main": "./dist/extension.cjs",
+	"activationEvents": [
+		"onLanguage:typescript",
+		"onLanguage:typescriptreact",
+		"onLanguage:javascript",
+		"onLanguage:javascriptreact"
+	],
+	"scripts": {
+		"build": "tsdown",
+		"package": "tsdown && pnpm dlx @vscode/vsce package --no-dependencies --skip-license --out dist/playwright-intent.vsix"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"@types/vscode": "~1.100.0",
+		"tsdown": "catalog:",
+		"typescript": "catalog:"
+	}
+}

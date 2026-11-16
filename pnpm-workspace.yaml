@@ -1,9 +1,12 @@
 packages:
   - cache-api
   - playwright-intent
+  - vscode-extension
 
 allowBuilds:
+  "@vscode/vsce-sign": set this to true or false
   esbuild: true
+  keytar: set this to true or false
 
 catalog:
   "@playwright/test": 1.63.0

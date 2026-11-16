@@ -5,6 +5,7 @@ export default defineConfig({
 		include: [
 			"cache-api/test-unit/**/*.test.ts",
 			"playwright-intent/test-unit/**/*.test.ts",
+			"vscode-extension/test-unit/**/*.test.ts",
 		],
 	},
 });
