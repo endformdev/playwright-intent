@@ -5,7 +5,7 @@
 
 H3-based API library for sharing [Playwright Intent](https://github.com/endformdev/playwright-intent) steps through S3-compatible object storage, like Cloudflare R2 or AWS S3.
 
-`remoteStore` from `playwright-intent/remote-store` talks to it. See [Sharing steps through a remote store](../README.md#sharing-steps-through-a-remote-store).
+`remoteStore` from `playwright-intent/remote-store` talks to it. See [Sharing steps through a remote store](https://github.com/endformdev/playwright-intent/blob/main/docs/stores-and-updates.md#sharing-steps-through-a-remote-store).
 
 ## Installation
 
