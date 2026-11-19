@@ -7,7 +7,7 @@
 	"type": "module",
 	"publisher": "endform",
 	"license": "Apache-2.0",
-	"homepage": "https://github.com/endformdev/playwright-intent#editor-support",
+	"homepage": "https://github.com/endformdev/playwright-intent/blob/main/docs/editor-support.md",
 	"bugs": {
 		"url": "https://github.com/endformdev/playwright-intent/issues"
 	},
