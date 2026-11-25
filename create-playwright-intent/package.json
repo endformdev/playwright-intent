@@ -1,6 +1,6 @@
 {
 	"name": "create-playwright-intent",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "Sets up Playwright Intent in a Playwright project. `npm init playwright-intent` is `npx playwright-intent init`.",
 	"type": "module",
 	"license": "Apache-2.0",
