@@ -24,6 +24,9 @@
 	"files": [
 		"dist"
 	],
+	"bin": {
+		"playwright-intent": "./dist/bin.mjs"
+	},
 	"types": "./dist/index.d.mts",
 	"exports": {
 		".": {
@@ -49,6 +52,10 @@
 			"import": "./dist/reporter.mjs",
 			"require": "./dist/reporter.cjs",
 			"default": "./dist/reporter.mjs"
+		},
+		"./cli": {
+			"types": "./dist/cli.d.mts",
+			"default": "./dist/cli.mjs"
 		},
 		"./package.json": "./package.json"
 	},

@@ -5,6 +5,9 @@ export * from "@playwright/test";
 
 export const test = createIntentTest(base);
 
+/** Like Playwright's, so `import test from` keeps working. */
+export default test;
+
 // The agent types are only exported for this library's e2e scripted agent.
 export type {
 	AgentSession,

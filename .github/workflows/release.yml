@@ -38,4 +38,4 @@ jobs:
         run: pnpm --filter "./playwright-intent" --filter "./cache-api" run build
 
       - name: Publish packages to npm
-        run: pnpm --filter "./playwright-intent" --filter "./cache-api" publish --no-git-checks --access public
+        run: pnpm --filter "./playwright-intent" --filter "./cache-api" --filter "./create-playwright-intent" publish --no-git-checks --access public

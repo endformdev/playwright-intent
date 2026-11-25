@@ -62,7 +62,9 @@ export function assertIntentOptions(
 ): asserts options is IntentOptions {
 	if (!options?.store?.updates) {
 		throw new IntentConfigError(
-			`Set use.intent.store in playwright.config.ts, and pass the same options to the reporter:\n\n${CONFIG_EXAMPLE}`,
+			"Set use.intent.store in playwright.config.ts, and pass the same " +
+				"options to the reporter. `npx playwright-intent init` does both for " +
+				`you, or add them yourself:\n\n${CONFIG_EXAMPLE}`,
 		);
 	}
 	if (options.agent && options.prompts) {

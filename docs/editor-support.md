@@ -15,4 +15,6 @@ To suggest it to everyone who opens your repository, add it to `.vscode/extensio
 { "recommendations": ["endform.playwright-intent-vscode"] }
 ```
 
+If the repository has a `.vscode` folder, [`playwright-intent init`](setup.md) reminds you to add it.
+
 The extension finds a step from the titles of the `test` and `test.describe` calls around it. When those aren't string literals, as in a loop, or when `ai.do` is called from a helper, it offers every step with the same intent instead. Steps from a remote store show up once a run has downloaded them to `.intent`.

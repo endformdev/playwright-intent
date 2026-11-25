@@ -12,6 +12,7 @@
 			"playwright-intent/file-store": ["./src/store/file-store.ts"],
 			"playwright-intent/remote-store": ["./src/remote-store/remote-store.ts"],
 			"playwright-intent/reporter": ["./src/reporter/reporter.ts"],
+			"playwright-intent/cli": ["./src/cli/cli.ts"],
 			"@playwright-intent/cache-api": ["../cache-api/src/index.ts"],
 			"@playwright-intent/cache-api/file-system": [
 				"../cache-api/src/storage/file-system.ts"

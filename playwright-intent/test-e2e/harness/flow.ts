@@ -4,6 +4,7 @@ import { WORKSPACES } from "../global-setup";
 import { LocalCacheApi } from "./cache-api";
 import { FakeGitHub } from "./fake-github";
 import { Project } from "./project";
+import { SetupWorkspace } from "./setup-workspace";
 
 export { expect } from "@playwright/test";
 
@@ -13,6 +14,8 @@ export interface FlowFixtures {
 	github: FakeGitHub;
 	/** A local `@playwright-intent/cache-api`, for projects with a remote store. */
 	cacheApi: LocalCacheApi;
+	/** A suite before `playwright-intent init`, made of these files. */
+	createWorkspace(files: Record<string, string>): Promise<SetupWorkspace>;
 	/** For the rare flow that needs a differently set up project. */
 	createProject(options: {
 		moduleType?: "esm" | "cjs";
@@ -39,6 +42,24 @@ export const flow = base.extend<FlowFixtures>({
 		// Failed flows keep their workspace, so they can be inspected by hand.
 		if (testInfo.status === testInfo.expectedStatus) {
 			await Promise.all(created.map((project) => project.cleanUp()));
+		}
+	},
+
+	// oxlint-disable-next-line no-empty-pattern
+	createWorkspace: async ({}, use, testInfo) => {
+		const created: SetupWorkspace[] = [];
+
+		await use(async (files) => {
+			const workspace = await SetupWorkspace.create(
+				`${testInfo.testId}-setup-${created.length}`,
+				files,
+			);
+			created.push(workspace);
+			return workspace;
+		});
+
+		if (testInfo.status === testInfo.expectedStatus) {
+			await Promise.all(created.map((workspace) => workspace.cleanUp()));
 		}
 	},
 

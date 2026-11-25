@@ -1,5 +1,6 @@
 packages:
   - cache-api
+  - create-playwright-intent
   - playwright-intent
   - vscode-extension
 

@@ -1,0 +1,34 @@
+{
+	"name": "create-playwright-intent",
+	"version": "0.2.0",
+	"description": "Sets up Playwright Intent in a Playwright project. `npm init playwright-intent` is `npx playwright-intent init`.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"homepage": "https://github.com/endformdev/playwright-intent#readme",
+	"bugs": {
+		"url": "https://github.com/endformdev/playwright-intent/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/endformdev/playwright-intent.git",
+		"directory": "create-playwright-intent"
+	},
+	"author": "Oliver Stenbom <oliver@endform.dev>",
+	"keywords": [
+		"playwright",
+		"playwright-intent",
+		"create"
+	],
+	"bin": {
+		"create-playwright-intent": "./index.mjs"
+	},
+	"files": [
+		"index.mjs"
+	],
+	"dependencies": {
+		"playwright-intent": "workspace:*"
+	},
+	"engines": {
+		"node": ">=24.0.0"
+	}
+}
