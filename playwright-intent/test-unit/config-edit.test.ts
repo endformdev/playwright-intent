@@ -362,3 +362,119 @@ export default makeConfig();
 	expect(result.code).toContain("makeConfig()");
 	expect(result.manual[0]).toContain("add the intent options by hand");
 });
+
+test("both a typed config variable and defineConfig get IntentUseOptions", () => {
+	const result =
+		edit(`import { defineConfig, type PlaywrightTestConfig } from "@playwright/test";
+
+const config: PlaywrightTestConfig = {
+	use: { trace: "on" },
+};
+
+export default defineConfig(config);
+`);
+
+	expect(result.code).toContain(
+		"const config: PlaywrightTestConfig<IntentUseOptions> = {",
+	);
+	expect(result.code).toContain(
+		"export default defineConfig<IntentUseOptions>(config);",
+	);
+	expect(edit(result.code).code).toBe(result.code);
+});
+
+test("defineConfig with a satisfies expression is edited", () => {
+	const result =
+		edit(`import { defineConfig, type PlaywrightTestConfig } from "@playwright/test";
+
+export default defineConfig({
+	testDir: "./tests",
+} satisfies PlaywrightTestConfig);
+`);
+
+	expect(result.added).toEqual(["intent options", "reporter", ".env loading"]);
+	expect(result.code).toContain(
+		"export default defineConfig<IntentUseOptions>({",
+	);
+	expect(result.code).toContain(
+		"} satisfies PlaywrightTestConfig<IntentUseOptions>);",
+	);
+});
+
+test("comments inside an empty use block are kept", () => {
+	const result = edit(`import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+	use: {
+		// baseURL: "http://localhost:3000",
+	},
+});
+`);
+
+	expect(result.code).toContain('		// baseURL: "http://localhost:3000",');
+	expect(result.code).toContain("	use: {\n		intent,\n");
+});
+
+test("an existing path binding doesn't collide with node:path", () => {
+	const result = edit(`import { defineConfig } from "@playwright/test";
+
+const path = "./tests";
+
+export default defineConfig({ testDir: path });
+`);
+
+	expect(result.code).toContain('import intentPath from "node:path";');
+	expect(result.code).toContain(
+		'const envFile = intentPath.join(import.meta.dirname, ".env");',
+	);
+});
+
+test("a CommonJS config with require inside the config puts imports first", () => {
+	const result = edit(
+		`const { defineConfig } = require("@playwright/test");
+const config = defineConfig({ testDir: require("./helper") });
+module.exports = config;
+`,
+		"playwright.config.js",
+		false,
+	);
+
+	expect(
+		result.code.indexOf('require("playwright-intent/file-store")'),
+	).toBeLessThan(result.code.indexOf("const intent = {"));
+});
+
+test("comments don't skip edits, and unrelated model keys aren't gateway models", () => {
+	const commented = edit(`import { defineConfig } from "@playwright/test";
+// playwright-intent/reporter and IntentUseOptions
+export default defineConfig({ testDir: "./tests" });
+`);
+	expect(commented.code).toContain("defineConfig<IntentUseOptions>({");
+	expect(commented.code).toContain('["playwright-intent/reporter", intent]');
+
+	const customModel =
+		edit(`import { defineConfig, type IntentOptions, type IntentUseOptions } from "playwright-intent";
+import { allow, fileStore, refuse } from "playwright-intent/file-store";
+import "dotenv/config";
+
+const intent = {
+	model: customProvider("gpt"),
+	store: fileStore({ updates: { local: allow(), ci: refuse() } }),
+} satisfies IntentOptions;
+
+export default defineConfig<IntentUseOptions>({
+	metadata: { model: "device-x" },
+	reporter: [["list"], ["playwright-intent/reporter", intent]],
+	use: { intent },
+});
+`);
+	expect(customModel.gatewayModel).toBeUndefined();
+});
+
+test("a CRLF create-playwright config replaces the commented dotenv block", () => {
+	const crlf = CREATE_PLAYWRIGHT.replace(/\n/g, "\r\n");
+	const result = edit(crlf, "playwright.config.ts", false);
+
+	expect(result.code).not.toContain("// import dotenv from");
+	expect(result.code).toContain("process.loadEnvFile(envFile)");
+});

@@ -70,7 +70,7 @@ export async function init(options: InitOptions): Promise<number> {
 		}
 		packages.push("@playwright/test@latest");
 		left.push(
-			"Install the browsers for the new Playwright version with `npx playwright install`.",
+			`Install the browsers for the new Playwright version with \`${playwrightCommand(project, "install")}\`.`,
 		);
 	}
 
@@ -120,7 +120,7 @@ export async function init(options: InitOptions): Promise<number> {
 		);
 	}
 
-	const tip = await vscodeTip(project.directory);
+	const tip = await vscodeTip(project.directory, cwd);
 	if (tip) notes.push(tip);
 
 	if (!declares(project.manifest, "playwright-intent")) {
@@ -187,20 +187,21 @@ async function editProject(
 	const code = await fs.readFile(config, "utf8");
 	const esm = await isEsm(config);
 	let model = options.model ?? DEFAULT_MODEL;
-	const needsOptions = editConfig({
-		code,
-		file: config,
-		parse,
-		esm,
-		model,
-	}).added.includes("intent options");
-	if (needsOptions && prompts && !options.model) {
-		model = await prompts.text(
+	let configEdit = editConfig({ code, file: config, parse, esm, model });
+	if (
+		configEdit.added.includes("intent options") &&
+		prompts &&
+		!options.model
+	) {
+		const chosen = await prompts.text(
 			"Which Vercel AI Gateway model should write steps?",
 			DEFAULT_MODEL,
 		);
+		if (chosen !== model) {
+			model = chosen;
+			configEdit = editConfig({ code, file: config, parse, esm, model });
+		}
 	}
-	const configEdit = editConfig({ code, file: config, parse, esm, model });
 	left.push(...configEdit.manual);
 
 	const imports = await scanTestImports(project.packageDirectory, parse, [
@@ -365,6 +366,8 @@ function printSummary(summary: Summary): void {
 		print(
 			`playwright-intent is already set up in ${config}. Nothing to change.`,
 		);
+	} else if (changes.length === 0 && summary.installed.length === 0) {
+		print(`Nothing was changed in ${config}.`);
 	} else {
 		print(`Set up playwright-intent in ${config}.`);
 	}
@@ -383,8 +386,14 @@ function printSummary(summary: Summary): void {
 	printList("Left for you", summary.left);
 
 	if (changes.length > 0) {
+		const isDefault =
+			path.dirname(project.config) === cwd &&
+			/^playwright\.config\.[cm]?[jt]s$/.test(path.basename(project.config));
+		const runTests = isDefault
+			? playwrightCommand(project)
+			: `${playwrightCommand(project)} --config ${config}`;
 		print(
-			`\nNext, write \`await ai.do("…")\` in a test, run \`${playwrightCommand(project)}\`, and commit the .intent folder with your tests.`,
+			`\nNext, write \`await ai.do("…")\` in a test, run \`${runTests}\`, and commit the .intent folder with your tests.`,
 		);
 	}
 }

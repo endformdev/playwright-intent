@@ -235,7 +235,8 @@ export function detectStyle(code: string, ast: Node): CodeStyle {
 		(statement) =>
 			statement.type === "ImportDeclaration" ||
 			statement.type === "VariableDeclaration" ||
-			statement.type === "ExpressionStatement",
+			statement.type === "ExpressionStatement" ||
+			statement.type === "ExportDefaultDeclaration",
 	);
 	const semi = first
 		? code.slice(start(first), end(first)).trimEnd().endsWith(";")

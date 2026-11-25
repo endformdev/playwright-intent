@@ -4,7 +4,6 @@ import {
 	end,
 	findProperty,
 	indentAt,
-	keyName,
 	lineOf,
 	type Node,
 	type Parse,
@@ -46,7 +45,7 @@ interface ConfigTarget {
 
 /** The `.env` lines that `npm init playwright` leaves commented out. */
 const DOTENV_TEMPLATE =
-	/^(?:\/\*\*\n \* Read environment variables from file\.\n \* https:\/\/github\.com\/motdotla\/dotenv\n \*\/\n)?\/\/ ?import dotenv from ['"]dotenv['"];?\n(?:\/\/ ?import path from ['"](?:node:)?path['"];?\n)?\/\/ ?dotenv\.config\(.*\);?$/m;
+	/^(?:\/\*\*\r?\n \* Read environment variables from file\.\r?\n \* https:\/\/github\.com\/motdotla\/dotenv\r?\n \*\/\r?\n)?\/\/ ?import dotenv from ['"]dotenv['"];?\r?\n(?:\/\/ ?import path from ['"](?:node:)?path['"];?\r?\n)?\/\/ ?dotenv\.config\(.*\);?$/m;
 
 /**
  * Adds intent options, the reporter and `.env` loading to a Playwright
@@ -94,7 +93,7 @@ export function editConfig(input: ConfigEditInput): ConfigEdit {
 
 	const bound = topLevelNames(body);
 	const existingOptions = findIntentOption(target.object);
-	const newName = bound.has("intent") ? "intentOptions" : "intent";
+	const newName = freshName("intent", "intentOptions", bound);
 	const optionsName = existingOptions
 		? optionsReference(existingOptions)
 		: newName;
@@ -124,7 +123,7 @@ export function editConfig(input: ConfigEditInput): ConfigEdit {
 			use.type === "ObjectProperty" &&
 			use.value.type === "ObjectExpression"
 		) {
-			prependItem(edits, code, use.value, useEntry);
+			prependItem(edits, code, style, use.value, useEntry);
 		} else {
 			manual.push(
 				`Add ${useEntry} to use in ${fileName(file)}, like use: { ...yourUse, ${useEntry} }.`,
@@ -133,7 +132,7 @@ export function editConfig(input: ConfigEditInput): ConfigEdit {
 		added.push("intent options");
 	}
 
-	if (!code.includes("playwright-intent/reporter")) {
+	if (!hasReporter(ast)) {
 		if (!optionsName) {
 			manual.push(
 				`Pass the same options as use.intent to the reporter in ${fileName(file)}:\n\n  reporter: [["list"], ["playwright-intent/reporter", intent]],`,
@@ -176,19 +175,26 @@ export function editConfig(input: ConfigEditInput): ConfigEdit {
 		);
 	}
 
-	if (typed && !code.includes("IntentUseOptions")) {
-		const slot = target.typeSlots[0];
-		if (slot) {
+	if (typed) {
+		let addedUseType = false;
+		for (const slot of target.typeSlots) {
 			const first = slot.typeParameters?.params?.[0] as Node | undefined;
+			if (first && hasTypeReference(first, "IntentUseOptions")) continue;
 			if (first) {
-				edits.insert(end(first), " & IntentUseOptions");
+				if (first.type === "TSUnionType") {
+					edits.insert(start(first), "(");
+					edits.insert(end(first), ") & IntentUseOptions");
+				} else {
+					edits.insert(end(first), " & IntentUseOptions");
+				}
 			} else {
 				const after =
 					slot.type === "CallExpression" ? slot.callee : slot.typeName;
 				edits.insert(end(after), "<IntentUseOptions>");
 			}
-			typeNames.push("IntentUseOptions");
+			addedUseType = true;
 		}
+		if (addedUseType) typeNames.push("IntentUseOptions");
 	}
 
 	const neededTypes = typeNames.filter((name) => !bound.has(name));
@@ -206,18 +212,19 @@ export function editConfig(input: ConfigEditInput): ConfigEdit {
 				: `import ${name} from ${q(module)}${semi}`;
 		const fsName = moduleBinding(body, ["fs", "node:fs"]);
 		const pathName = moduleBinding(body, ["path", "node:path"]);
-		if (!fsName) importLines.push(moduleImport("fs", "node:fs"));
-		if (!pathName) importLines.push(moduleImport("path", "node:path"));
-		const fsRef = fsName ?? "fs";
-		const pathRef = pathName ?? "path";
+		const fsRef = fsName ?? freshName("fs", "intentFs", bound);
+		const pathRef = pathName ?? freshName("path", "intentPath", bound);
+		if (!fsName) importLines.push(moduleImport(fsRef, "node:fs"));
+		if (!pathName) importLines.push(moduleImport(pathRef, "node:path"));
 		const dirname = input.esm ? "import.meta.dirname" : "__dirname";
-		const variable = bound.has("envFile") ? "intentEnvFile" : "envFile";
+		const variable = freshName("envFile", "intentEnvFile", bound);
 		envLines = [
 			`const ${variable} = ${pathRef}.join(${dirname}, ${q(".env")})${semi}`,
 			`if (${fsRef}.existsSync(${variable})) process.loadEnvFile(${variable})${semi}`,
 		];
 		const template = DOTENV_TEMPLATE.exec(code);
 		if (template) {
+			const eol = code.includes("\r\n") ? "\r\n" : "\n";
 			edits.replace(
 				template.index,
 				template.index + template[0].length,
@@ -226,7 +233,7 @@ export function editConfig(input: ConfigEditInput): ConfigEdit {
 					" * Read environment variables from file.",
 					" */",
 					...envLines,
-				].join("\n"),
+				].join(eol),
 			);
 			envLines = undefined;
 		}
@@ -238,7 +245,11 @@ export function editConfig(input: ConfigEditInput): ConfigEdit {
 			...importLines.map((line) => `\n${line}`),
 			...(envLines ? [`\n\n${envLines.join("\n")}`] : []),
 		].join("");
-		const lastImport = lastImportStatement(body, requireSyntax);
+		const lastImport = lastImportStatement(
+			body,
+			requireSyntax,
+			target.statement,
+		);
 		if (lastImport) {
 			edits.insert(end(lastImport), text);
 		} else {
@@ -250,7 +261,9 @@ export function editConfig(input: ConfigEditInput): ConfigEdit {
 		code: edits.toString(),
 		added,
 		manual,
-		gatewayModel: existingOptions ? findGatewayModel(ast) : input.model,
+		gatewayModel: existingOptions
+			? findGatewayModel(body, existingOptions)
+			: input.model,
 	};
 }
 
@@ -378,40 +391,31 @@ function resolveConfig(
 			if (!isDefineConfig(expression.callee)) return undefined;
 			typeSlots.push(expression);
 			const args = expression.arguments as Node[];
-			const last = args.filter((arg) => arg.type === "ObjectExpression").at(-1);
-			if (last) return { object: last, statement, typeSlots };
-			const only = args[0];
-			if (args.length === 1 && only?.type === "Identifier") {
-				return resolveConfig(body, only, statement, typeSlots, depth + 1);
+			const last = args
+				.map((arg) => {
+					const argSlots: Node[] = [];
+					const unwrapped = unwrapExpression(arg, argSlots);
+					return unwrapped.type === "ObjectExpression"
+						? { object: unwrapped, argSlots }
+						: undefined;
+				})
+				.filter(
+					(entry): entry is { object: Node; argSlots: Node[] } =>
+						entry !== undefined,
+				)
+				.at(-1);
+			if (last) {
+				typeSlots.push(...last.argSlots);
+				return { object: last.object, statement, typeSlots };
 			}
-			return undefined;
-		}
-		case "Identifier": {
-			for (const candidate of body) {
-				const declaration =
-					candidate.type === "ExportNamedDeclaration"
-						? candidate.declaration
-						: candidate;
-				if (declaration?.type !== "VariableDeclaration") continue;
-				for (const declarator of declaration.declarations as Node[]) {
-					if (
-						declarator.id.type !== "Identifier" ||
-						declarator.id.name !== expression.name ||
-						!declarator.init
-					) {
-						continue;
-					}
-					const annotation = declarator.id.typeAnnotation;
-					if (
-						annotation?.type === "TSTypeAnnotation" &&
-						isConfigType(annotation.typeAnnotation)
-					) {
-						typeSlots.push(annotation.typeAnnotation);
-					}
+			const only = args[0];
+			if (args.length === 1 && only) {
+				const unwrapped = unwrapExpression(only, typeSlots);
+				if (unwrapped.type === "Identifier") {
 					return resolveConfig(
 						body,
-						declarator.init,
-						candidate,
+						unwrapped,
+						statement,
 						typeSlots,
 						depth + 1,
 					);
@@ -419,9 +423,69 @@ function resolveConfig(
 			}
 			return undefined;
 		}
+		case "Identifier": {
+			const binding = findVariable(body, expression.name);
+			if (!binding) return undefined;
+			const annotation = binding.declarator.id.typeAnnotation;
+			if (
+				annotation?.type === "TSTypeAnnotation" &&
+				isConfigType(annotation.typeAnnotation)
+			) {
+				typeSlots.push(annotation.typeAnnotation);
+			}
+			return resolveConfig(
+				body,
+				binding.init,
+				binding.statement,
+				typeSlots,
+				depth + 1,
+			);
+		}
 		default:
 			return undefined;
 	}
+}
+
+function unwrapExpression(node: Node, typeSlots?: Node[]): Node {
+	let current = node;
+	while (true) {
+		if (current.type === "ParenthesizedExpression") {
+			current = current.expression;
+		} else if (
+			current.type === "TSSatisfiesExpression" ||
+			current.type === "TSAsExpression"
+		) {
+			if (typeSlots && isConfigType(current.typeAnnotation)) {
+				typeSlots.push(current.typeAnnotation);
+			}
+			current = current.expression;
+		} else {
+			return current;
+		}
+	}
+}
+
+function findVariable(
+	body: Node[],
+	name: string,
+): { statement: Node; declarator: Node; init: Node } | undefined {
+	for (const candidate of body) {
+		const declaration =
+			candidate.type === "ExportNamedDeclaration"
+				? candidate.declaration
+				: candidate;
+		if (declaration?.type !== "VariableDeclaration") continue;
+		for (const declarator of declaration.declarations as Node[]) {
+			if (
+				declarator.id.type === "Identifier" &&
+				declarator.id.name === name &&
+				declarator.init
+			) {
+				return { statement: candidate, declarator, init: declarator.init };
+			}
+		}
+	}
+	return undefined;
 }
 
 function isDefineConfig(callee: Node): boolean {
@@ -444,13 +508,66 @@ function isConfigType(type: Node): boolean {
 	return name === "PlaywrightTestConfig";
 }
 
-/** The `intent` property anywhere in the config, like `use.intent`. */
-function findIntentOption(object: Node): Node | undefined {
-	let found: Node | undefined;
-	walk(object, (node) => {
-		if (!found && keyName(node) === "intent") found = node;
+function hasTypeReference(type: Node, name: string): boolean {
+	let found = false;
+	walk(type, (node) => {
+		if (found || node.type !== "TSTypeReference") return;
+		const refName =
+			node.typeName.type === "Identifier"
+				? node.typeName.name
+				: node.typeName.type === "TSQualifiedName"
+					? node.typeName.right.name
+					: "";
+		if (refName === name) found = true;
 	});
 	return found;
+}
+
+function hasReporter(ast: Node): boolean {
+	let found = false;
+	walk(ast.program, (node) => {
+		if (found) return;
+		if (
+			node.type === "StringLiteral" &&
+			node.value === "playwright-intent/reporter"
+		) {
+			found = true;
+		} else if (
+			node.type === "TemplateLiteral" &&
+			node.expressions.length === 0 &&
+			node.quasis[0]?.value?.cooked === "playwright-intent/reporter"
+		) {
+			found = true;
+		}
+	});
+	return found;
+}
+
+/** The `intent` property in top-level `use` or a project's `use`. */
+function findIntentOption(object: Node): Node | undefined {
+	const use = findProperty(object, "use");
+	if (use?.type === "ObjectProperty" && use.value.type === "ObjectExpression") {
+		const found = findProperty(use.value, "intent");
+		if (found) return found;
+	}
+	const projects = findProperty(object, "projects");
+	if (
+		projects?.type === "ObjectProperty" &&
+		projects.value.type === "ArrayExpression"
+	) {
+		for (const project of projects.value.elements as (Node | null)[]) {
+			if (project?.type !== "ObjectExpression") continue;
+			const projectUse = findProperty(project, "use");
+			if (
+				projectUse?.type === "ObjectProperty" &&
+				projectUse.value.type === "ObjectExpression"
+			) {
+				const found = findProperty(projectUse.value, "intent");
+				if (found) return found;
+			}
+		}
+	}
+	return undefined;
 }
 
 /** The name the existing options go by, when the reporter can reuse it. */
@@ -467,10 +584,22 @@ function statementStart(code: string, statement: Node): number {
 	let position = start(statement);
 	for (const comment of [...(statement.leadingComments ?? [])].reverse()) {
 		const gap = code.slice(comment.end ?? 0, position);
-		if (/\n[ \t]*\n/.test(gap)) break;
+		if (/\r?\n[ \t]*\r?\n/.test(gap)) break;
 		position = comment.start ?? position;
 	}
 	return position;
+}
+
+function freshName(
+	preferred: string,
+	fallback: string,
+	bound: Set<string>,
+): string {
+	if (!bound.has(preferred)) return preferred;
+	if (!bound.has(fallback)) return fallback;
+	let suffix = 2;
+	while (bound.has(`${fallback}${suffix}`)) suffix++;
+	return `${fallback}${suffix}`;
 }
 
 function topLevelNames(body: Node[]): Set<string> {
@@ -566,8 +695,11 @@ function moduleBinding(body: Node[], modules: string[]): string | undefined {
 function lastImportStatement(
 	body: Node[],
 	requireSyntax: boolean,
+	before: Node,
 ): Node | undefined {
-	return body.findLast((statement) =>
+	const limit = body.indexOf(before);
+	const prefix = limit === -1 ? body : body.slice(0, limit);
+	return prefix.findLast((statement) =>
 		requireSyntax
 			? statement.type === "VariableDeclaration" &&
 				(statement.declarations as Node[]).some((declarator) =>
@@ -592,19 +724,34 @@ function containsRequire(node: Node | null | undefined): boolean {
 	return found;
 }
 
-function findGatewayModel(ast: Node): string | undefined {
-	let model: string | undefined;
-	walk(ast.program, (node) => {
-		if (
-			!model &&
-			keyName(node) === "model" &&
-			node.type === "ObjectProperty" &&
-			node.value.type === "StringLiteral"
-		) {
-			model = node.value.value;
-		}
-	});
-	return model;
+function findGatewayModel(
+	body: Node[],
+	existingOptions: Node,
+): string | undefined {
+	if (existingOptions.type !== "ObjectProperty") return undefined;
+	const value = unwrapExpression(existingOptions.value);
+	const optionsObject =
+		value.type === "ObjectExpression"
+			? value
+			: value.type === "Identifier"
+				? (() => {
+						const binding = findVariable(body, value.name);
+						if (!binding) return undefined;
+						const init = unwrapExpression(binding.init);
+						return init.type === "ObjectExpression" ? init : undefined;
+					})()
+				: undefined;
+	if (!optionsObject) return undefined;
+	const modelProperty = findProperty(optionsObject, "model");
+	if (modelProperty?.type !== "ObjectProperty") return undefined;
+	const modelValue = unwrapExpression(modelProperty.value);
+	if (modelValue.type === "StringLiteral") return modelValue.value;
+	if (modelValue.type === "Identifier") {
+		const binding = findVariable(body, modelValue.name);
+		const init = binding ? unwrapExpression(binding.init) : undefined;
+		if (init?.type === "StringLiteral") return init.value;
+	}
+	return undefined;
 }
 
 /** Adds items after the last child of an object or array literal. */
@@ -620,17 +767,37 @@ function appendItems(
 	const last = present.at(-1);
 
 	if (!last) {
+		const inside = code.slice(start(container) + 1, end(container) - 1);
 		if (container.type === "ArrayExpression") {
-			edits.replace(start(container), end(container), `[${items.join(", ")}]`);
+			if (inside.trim().length === 0) {
+				edits.replace(
+					start(container),
+					end(container),
+					`[${items.join(", ")}]`,
+				);
+			} else {
+				const inner = `${indentAt(code, start(container))}${style.indent}`;
+				edits.insert(
+					start(container) + 1,
+					items.map((item) => `\n${inner}${item},`).join(""),
+				);
+			}
 			return;
 		}
 		const outer = indentAt(code, start(container));
 		const inner = `${outer}${style.indent}`;
-		edits.replace(
-			start(container),
-			end(container),
-			`{\n${items.map((item) => `${inner}${item},`).join("\n")}\n${outer}}`,
-		);
+		if (inside.trim().length === 0) {
+			edits.replace(
+				start(container),
+				end(container),
+				`{\n${items.map((item) => `${inner}${item},`).join("\n")}\n${outer}}`,
+			);
+		} else {
+			edits.insert(
+				start(container) + 1,
+				items.map((item) => `\n${inner}${item},`).join(""),
+			);
+		}
 		return;
 	}
 
@@ -666,12 +833,19 @@ function appendItems(
 function prependItem(
 	edits: TextEdits,
 	code: string,
+	style: CodeStyle,
 	object: Node,
 	item: string,
 ): void {
 	const first = (object.properties as Node[])[0];
 	if (!first) {
-		edits.replace(start(object), end(object), `{ ${item} }`);
+		const inside = code.slice(start(object) + 1, end(object) - 1);
+		if (inside.trim().length === 0) {
+			edits.replace(start(object), end(object), `{ ${item} }`);
+		} else {
+			const inner = `${indentAt(code, start(object))}${style.indent}`;
+			edits.insert(start(object) + 1, `\n${inner}${item},`);
+		}
 		return;
 	}
 	const firstStart = first.leadingComments?.[0]?.start ?? start(first);

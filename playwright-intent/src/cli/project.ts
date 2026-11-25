@@ -138,17 +138,20 @@ export function installCommand(project: Project, packages: string[]): string[] {
 	}
 }
 
-/** How to run Playwright with the project's package manager. */
-export function playwrightCommand(project: Project): string {
+/** How to run a Playwright CLI subcommand with the project's package manager. */
+export function playwrightCommand(
+	project: Project,
+	subcommand = "test",
+): string {
 	switch (project.packageManager) {
 		case "pnpm":
-			return "pnpm exec playwright test";
+			return `pnpm exec playwright ${subcommand}`;
 		case "yarn":
-			return "yarn playwright test";
+			return `yarn playwright ${subcommand}`;
 		case "bun":
-			return "bunx playwright test";
+			return `bunx playwright ${subcommand}`;
 		default:
-			return "npx playwright test";
+			return `npx playwright ${subcommand}`;
 	}
 }
 
@@ -178,7 +181,10 @@ const EXTENSION_ID = "endform.playwright-intent-vscode";
  * A tip to recommend the VS Code extension, when the repository shares VS
  * Code settings and doesn't recommend it yet.
  */
-export async function vscodeTip(start: string): Promise<string | undefined> {
+export async function vscodeTip(
+	start: string,
+	cwd: string,
+): Promise<string | undefined> {
 	let directory = start;
 	while (true) {
 		const folder = path.join(directory, ".vscode");
@@ -187,7 +193,7 @@ export async function vscodeTip(start: string): Promise<string | undefined> {
 				.readFile(path.join(folder, "extensions.json"), "utf8")
 				.catch(() => "");
 			if (recommendations.includes(EXTENSION_ID)) return undefined;
-			return `To suggest the VS Code extension to your team, add "${EXTENSION_ID}" to the recommendations in ${path.join(path.relative(process.cwd(), folder) || ".vscode", "extensions.json")}.`;
+			return `To suggest the VS Code extension to your team, add "${EXTENSION_ID}" to the recommendations in ${path.join(path.relative(cwd, folder) || ".vscode", "extensions.json")}.`;
 		}
 		if (await exists(path.join(directory, ".git"))) return undefined;
 		const parent = path.dirname(directory);

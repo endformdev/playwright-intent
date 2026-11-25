@@ -63,6 +63,22 @@ test("CommonJS requires of test move", () => {
 	expect(
 		rewrite(`const base = require("@playwright/test").test;\n`, "a.spec.js"),
 	).toBe(`const base = require("playwright-intent").test;\n`);
+	expect(
+		rewrite(
+			`const test = require("@playwright/test");\ntest("works", async () => {});\n`,
+			"a.spec.js",
+		),
+	).toBe(
+		`const test = require("playwright-intent").test;\ntest("works", async () => {});\n`,
+	);
+	expect(
+		rewrite(
+			`const pw = require("@playwright/test");\npw.test("works", async () => {});\n`,
+			"a.spec.js",
+		),
+	).toBe(
+		`const pw = require("playwright-intent");\npw.test("works", async () => {});\n`,
+	);
 	const expectOnly = `const { expect } = require("@playwright/test");\n`;
 	expect(rewrite(expectOnly, "a.spec.js")).toBe(expectOnly);
 });
@@ -93,14 +109,36 @@ export const test = base.extend({
 		{ file: "fixtures.ts", line: 4, name: "ai" },
 		{ file: "fixtures.ts", line: 5, name: "intent" },
 	]);
+
+	const staticValue = scanCode(
+		`import { test as base } from "@playwright/test";
+
+export const test = base.extend<{ ai: string }>({ ai: "mine" });
+`,
+		"static.ts",
+	);
+	expect(staticValue.conflicts).toEqual([
+		{ file: "static.ts", line: 3, name: "ai" },
+	]);
 });
 
-test("an ai property that isn't a fixture isn't a conflict", () => {
-	const scan = scanCode(
+test("an ai property that isn't a Playwright fixture isn't a conflict", () => {
+	const schema = scanCode(
 		`const schema = z.object({}).extend({ ai: z.string() });\n`,
 		"schema.ts",
 	);
-	expect(scan.conflicts).toEqual([]);
+	expect(schema.conflicts).toEqual([]);
+
+	const vitest = scanCode(
+		`import { test as base } from "vitest";
+
+const test = base.extend({
+	ai: async ({}, use) => use("mock"),
+});
+`,
+		"ai.test.ts",
+	);
+	expect(vitest.conflicts).toEqual([]);
 });
 
 test("test from another package is reported, for the caller to check", () => {

@@ -131,12 +131,15 @@ function sourceFiles(root: string, skip: string[]): Promise<string[]> {
 	);
 }
 
+const NAMED_TEST_IMPORT =
+	/\bimport\s+(?:[^{;\n]+,\s*)?\{[^};]*\btest\b[^};]*\}\s*from\s*['"]/;
+
 function mayMatter(code: string): boolean {
 	return (
 		code.includes("@playwright/") ||
 		code.includes(INTENT) ||
 		code.includes(".extend") ||
-		/\btest\b/.test(code)
+		NAMED_TEST_IMPORT.test(code)
 	);
 }
 
@@ -148,6 +151,24 @@ interface FileScan {
 	/** Other packages that `test` is imported from. */
 	testSources: string[];
 }
+
+const TEST_METHODS = new Set([
+	"describe",
+	"extend",
+	"beforeEach",
+	"afterEach",
+	"beforeAll",
+	"afterAll",
+	"use",
+	"only",
+	"skip",
+	"fixme",
+	"fail",
+	"step",
+	"info",
+	"slow",
+	"setTimeout",
+]);
 
 /** Throws when the file can't be parsed. */
 export function scanFile(code: string, file: string, parse: Parse): FileScan {
@@ -164,16 +185,51 @@ export function scanFile(code: string, file: string, parse: Parse): FileScan {
 		edits.replace(start(source) + 1, end(source) - 1, INTENT);
 	};
 
+	const playwrightTestBindings = new Set<string>();
+	const externalBindings = new Set<string>();
+
 	for (const statement of ast.program.body as Node[]) {
 		if (statement.type === "ImportDeclaration") {
 			const source = statement.source.value;
 			if (statement.importKind === "type") continue;
-			const takesTest = (statement.specifiers as Node[]).some(
+			const specifiers = statement.specifiers as Node[];
+			const takesTest = specifiers.some(
 				(specifier) =>
 					specifier.type !== "ImportSpecifier" ||
 					(specifier.importKind !== "type" &&
 						exportedName(specifier.imported) === "test"),
 			);
+
+			if (source === PLAYWRIGHT || source === INTENT) {
+				for (const specifier of specifiers) {
+					if (specifier.importKind === "type") continue;
+					if (
+						specifier.type !== "ImportSpecifier" ||
+						["test", "mergeTests"].includes(exportedName(specifier.imported))
+					) {
+						playwrightTestBindings.add(specifier.local.name);
+					}
+				}
+			} else if (isPackage(source)) {
+				for (const specifier of specifiers) {
+					if (specifier.importKind !== "type") {
+						externalBindings.add(specifier.local.name);
+					}
+				}
+			} else {
+				// Relative imports of `test` (or default) may be layered Playwright fixtures.
+				for (const specifier of specifiers) {
+					if (specifier.importKind === "type") continue;
+					if (
+						specifier.type === "ImportDefaultSpecifier" ||
+						(specifier.type === "ImportSpecifier" &&
+							exportedName(specifier.imported) === "test")
+					) {
+						playwrightTestBindings.add(specifier.local.name);
+					}
+				}
+			}
+
 			if (source.startsWith("@playwright/experimental-ct-")) {
 				scan.componentTests = true;
 			} else if (source === PLAYWRIGHT && takesTest) {
@@ -184,7 +240,7 @@ export function scanFile(code: string, file: string, parse: Parse): FileScan {
 				takesTest &&
 				isPackage(source) &&
 				!source.startsWith("@playwright/") &&
-				(statement.specifiers as Node[]).some(
+				specifiers.some(
 					(specifier) =>
 						specifier.type === "ImportSpecifier" &&
 						exportedName(specifier.imported) === "test",
@@ -210,9 +266,65 @@ export function scanFile(code: string, file: string, parse: Parse): FileScan {
 		}
 	}
 
+	// Collect CommonJS require bindings and chained Playwright fixture declarations.
 	walk(ast.program, (node, parent) => {
-		if (isRequireOf(node, PLAYWRIGHT) && requiresTest(parent)) {
-			moveToIntent(node.arguments[0]);
+		if (
+			node.type === "CallExpression" &&
+			node.callee.type === "Identifier" &&
+			node.callee.name === "require" &&
+			node.arguments[0]?.type === "StringLiteral" &&
+			parent?.type === "VariableDeclarator"
+		) {
+			const source = node.arguments[0].value as string;
+			if (source === PLAYWRIGHT || source === INTENT) {
+				if (parent.id.type === "Identifier") {
+					playwrightTestBindings.add(parent.id.name);
+				} else if (parent.id.type === "ObjectPattern") {
+					for (const property of parent.id.properties as Node[]) {
+						const name = keyName(property);
+						if (
+							(name === "test" || name === "mergeTests") &&
+							property.value?.type === "Identifier"
+						) {
+							playwrightTestBindings.add(property.value.name);
+						}
+					}
+				}
+			} else if (isPackage(source)) {
+				walk(parent.id, (id) => {
+					if (id.type === "Identifier") externalBindings.add(id.name);
+				});
+			} else if (parent.id.type === "ObjectPattern") {
+				for (const property of parent.id.properties as Node[]) {
+					if (
+						keyName(property) === "test" &&
+						property.value?.type === "Identifier"
+					) {
+						playwrightTestBindings.add(property.value.name);
+					}
+				}
+			}
+		} else if (
+			parent?.type === "VariableDeclarator" &&
+			parent.id.type === "Identifier" &&
+			node.type === "CallExpression"
+		) {
+			const root = rootIdentifier(node.callee);
+			if (root && playwrightTestBindings.has(root)) {
+				playwrightTestBindings.add(parent.id.name);
+			}
+		}
+	});
+
+	walk(ast.program, (node, parent) => {
+		if (isRequireOf(node, PLAYWRIGHT)) {
+			const usage = requireUsage(ast.program, node, parent);
+			if (usage === "module") {
+				moveToIntent(node.arguments[0]);
+			} else if (usage === "test") {
+				moveToIntent(node.arguments[0]);
+				edits.insert(end(node), ".test");
+			}
 		}
 		if (isRequireOf(node, INTENT) && requiresTest(parent)) {
 			scan.fromIntent = true;
@@ -224,9 +336,15 @@ export function scanFile(code: string, file: string, parse: Parse): FileScan {
 			node.callee.property.name === "extend" &&
 			node.arguments[0]?.type === "ObjectExpression"
 		) {
+			const root = rootIdentifier(node.callee.object);
+			if (root && externalBindings.has(root)) return;
+			const knownPlaywright = Boolean(root && playwrightTestBindings.has(root));
 			for (const property of node.arguments[0].properties as Node[]) {
 				const name = keyName(property);
-				if ((name === "ai" || name === "intent") && isFixture(property)) {
+				if (
+					(name === "ai" || name === "intent") &&
+					(knownPlaywright || isFixture(property))
+				) {
 					scan.conflicts.push({
 						file,
 						line: lineOf(code, start(property)),
@@ -245,6 +363,22 @@ function exportedName(node: Node): string {
 	return node.type === "Identifier" ? node.name : node.value;
 }
 
+function rootIdentifier(node: Node): string | undefined {
+	let current = node;
+	while (true) {
+		if (current.type === "Identifier") return current.name;
+		if (current.type === "MemberExpression") {
+			current = current.object;
+		} else if (current.type === "CallExpression") {
+			current = current.callee;
+		} else if (current.type === "ParenthesizedExpression") {
+			current = current.expression;
+		} else {
+			return undefined;
+		}
+	}
+}
+
 function isRequireOf(node: Node, module: string): boolean {
 	return (
 		node.type === "CallExpression" &&
@@ -253,6 +387,65 @@ function isRequireOf(node: Node, module: string): boolean {
 		node.arguments[0]?.type === "StringLiteral" &&
 		node.arguments[0].value === module
 	);
+}
+
+/**
+ * How a `require("@playwright/test")` call is used:
+ * - `"module"`: switch to `require("playwright-intent")`
+ * - `"test"`: switch to `require("playwright-intent").test` (Playwright's CJS
+ *   export is callable directly, while playwright-intent's is a module object)
+ * - `"none"`: doesn't use `test`, leave alone
+ */
+function requireUsage(
+	program: Node,
+	node: Node,
+	parent: Node | undefined,
+): "module" | "test" | "none" {
+	if (parent?.type === "VariableDeclarator") {
+		if (parent.id.type === "ObjectPattern") {
+			return (parent.id.properties as Node[]).some(
+				(property) => keyName(property) === "test",
+			)
+				? "module"
+				: "none";
+		}
+		if (parent.id.type === "Identifier") {
+			return identifierRequireUsage(program, parent.id.name);
+		}
+		return "module";
+	}
+	if (parent?.type === "MemberExpression") {
+		return parent.property.type === "Identifier" &&
+			parent.property.name === "test"
+			? "module"
+			: "none";
+	}
+	if (parent?.type === "CallExpression" && parent.callee === node) {
+		return "test";
+	}
+	return "module";
+}
+
+function identifierRequireUsage(
+	program: Node,
+	name: string,
+): "module" | "test" | "none" {
+	let usesNamespaceTest = false;
+	let usesAsTest = false;
+	walk(program, (node, parent) => {
+		if (node.type !== "Identifier" || node.name !== name) return;
+		if (parent?.type === "MemberExpression" && parent.object === node) {
+			if (parent.property.type === "Identifier") {
+				if (parent.property.name === "test") usesNamespaceTest = true;
+				else if (TEST_METHODS.has(parent.property.name)) usesAsTest = true;
+			}
+		} else if (parent?.type === "CallExpression" && parent.callee === node) {
+			usesAsTest = true;
+		}
+	});
+	if (usesNamespaceTest) return "module";
+	if (usesAsTest) return "test";
+	return "none";
 }
 
 /** Whether a `require` result is used for `test`, not only for `expect`. */
