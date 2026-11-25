@@ -19,6 +19,7 @@ This is a pnpm workspace. Each package lives in a top-level directory:
 
 - `playwright-intent/` — the `playwright-intent` package
 - `cache-api/` — `@playwright-intent/cache-api`, the API `remoteStore` talks to
+- `create-playwright-intent/` — `create-playwright-intent`, so `npm init playwright-intent` runs `playwright-intent init`. It has to be unscoped for that.
 
 Additional packages are published under the `@playwright-intent/` npm scope. To add one, create a top-level directory, add it to `pnpm-workspace.yaml`, `tsconfig.json`, `vitest.config.ts`, the `release` script in `package.json` and the filters in `.github/workflows/release.yml`.
 

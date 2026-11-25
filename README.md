@@ -39,11 +39,15 @@ test("checkout", async ({ page, ai }) => {
 
 ## Quick start
 
-Requires Node 24 and Playwright 1.60 or later.
+Requires Node 24 and Playwright 1.60 or later. In a Playwright project, run:
 
 ```bash
-npm install -D playwright-intent
+npx playwright-intent@latest init
 ```
+
+This installs `playwright-intent`, adds its options to `playwright.config.ts`, and switches your tests and fixtures to import `test` from `playwright-intent`. It only asks questions in a terminal, so a coding agent can run it too. See [Setup](docs/setup.md).
+
+The options it adds look like this:
 
 ```ts
 // playwright.config.ts
@@ -65,10 +69,11 @@ export default defineConfig<IntentUseOptions>({
 });
 ```
 
-Run your tests as usual, with `AI_GATEWAY_API_KEY` set or a provider's model in `model`. Then commit the new `.intent` folder.
+Write a step with `ai.do`, and run your tests as usual, with `AI_GATEWAY_API_KEY` in `.env` or a provider's model in `model`. Then commit the new `.intent` folder.
 
 ## Documentation
 
+- [Setup](docs/setup.md): what `playwright-intent init` changes, and running it from an agent
 - [Configuration](docs/configuration.md): the options in `playwright.config.ts`
 - [Models](docs/models.md): choosing a model and provider
 - [Stores and updates](docs/stores-and-updates.md): where steps live, regenerating them in CI and sharing them through a remote store

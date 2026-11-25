@@ -193,6 +193,18 @@ A run delivers from the job that ran the tests, so a single job with the permiss
 
 Pull requests from forks and Dependabot get a read-only token and no secrets, so both policies act as `refuse()` there.
 
+## Setting up a project
+
+`playwright-intent init` edits an existing Playwright project, so it works on top of `npm init playwright` and on suites that have grown their own fixtures. `create-playwright-intent` calls the same code, so that `npm init playwright-intent` works too.
+
+- The config is edited, not regenerated. The exported object is found with the copy of Babel that Playwright parses tests with, from `playwright/lib/transform/babelBundle`, so the command bundles no parser. Only the missing parts are added as text, so formatting and comments survive. A part that isn't a literal, like a conditional `reporter`, is left for the user with the exact code to add.
+- That Babel isn't documented. If it can't be loaded, the config and import changes are left for the user, and everything else still happens.
+- Nothing is added to the user's project but `playwright-intent`. `.env` is loaded with Node's `process.loadEnvFile`, and prompts use `node:readline`.
+- Fixtures keep working because of one rule: every import of `test` from `@playwright/test` becomes one from `playwright-intent`. A fixture or option already called `ai` or `intent` stops it before anything is written.
+- Every answer is gathered before anything is written, and the install runs last. Each part checks whether it's already done, so running it again only adds what's missing.
+- It only prompts with a TTY. Otherwise it takes defaults, and stops with the command to run when it can't choose, so agents and scripts can run it. The key is read from the environment or `.env`, and never taken as an option.
+- It checks the key with Vercel AI Gateway's credits and model list, which costs nothing.
+
 ## Defaults taken for the MVP
 
 - `ai.do` returns nothing. Hand-written Playwright reads values from the page.
@@ -208,7 +220,8 @@ See [open-questions.md](open-questions.md) for postponed questions, and [step-qu
 - Pruning test folders from `main.zip` once their tests are renamed or deleted, so it can't grow forever.
 - Sharing steps between tests, and separate caches per browser project.
 - Pruning orphaned files, and letting steps import helpers.
-- A CLI, a summary reporter, and type-checking step files.
+- Setting up CI in `init`: passing the key to the workflow, and the permissions `commit()` and `propose()` need.
+- A summary reporter, and type-checking step files.
 - `ai.expect`.
 - Sending screenshots to OpenAI-compatible providers. By default they stringify tool results, so `look` would send base64 text unless `supportsMultiPartToolContent` is set.
 - Parallel tool calls on providers other than OpenAI, where a model could call `run` and `finish` in the same turn.
